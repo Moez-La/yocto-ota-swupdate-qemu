@@ -1,55 +1,16 @@
-# Prerequisites
-*.d
+# Yocto build outputs — trop lourds pour GitHub
+build/tmp/
+build/downloads/
+build/sstate-cache/
+build/cache/
 
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
+# Layers téléchargées — clone via setup.sh
+poky/
+meta-openembedded/
+meta-swupdate/
 
-# Linker output
-*.ilk
-*.map
-*.exp
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
-
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
-
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
-
-# debug information files
-*.dwo
+# Fichiers générés
+*.pyc
+__pycache__/
+*.swp
+*.orig
