@@ -122,6 +122,44 @@ This project implements the same OTA architecture used in:
 
 ---
 
+## Build Results
+
+### Phase 1 — Yocto Image (Completed)
+
+```
+Build system   : Yocto Project Scarthgap 5.0.18
+Target         : QEMU ARM (qemuarm)
+Kernel         : Linux 6.6.127-yocto-standard
+Architecture   : ARMv7 Processor rev 0 (v7l) — 4 CPUs
+Compiler       : arm-poky-linux-gnueabi-gcc 13.4.0
+Tasks executed : 4060 tasks — 0 errors
+```
+
+### Image Produced
+
+```
+zImage (kernel)          :  7.1 MB
+core-image-minimal.ext4  : 14.0 MB
+Total rootfs used        :  8.1 MB / 11.4 MB
+```
+
+### Boot Results (QEMU)
+
+```
+CPU      : ARMv7 Processor rev 0 (v7l) x4 cores
+RAM      : 232 MB available / 256 MB total
+Rootfs   : ext4 mounted r/w — /dev/vda
+Network  : eth0 UP — 192.168.7.2/24
+Swap     : none (embedded configuration)
+Status   : BOOT SUCCESSFUL
+```
+
+```
+root@qemuarm:~# uname -a
+Linux qemuarm 6.6.127-yocto-standard #1 SMP PREEMPT armv7l GNU/Linux
+```
+---
+
 ## Author
 
 **Moez Chagraoui** — Embedded Systems Engineer  
