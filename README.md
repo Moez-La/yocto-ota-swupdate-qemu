@@ -158,6 +158,27 @@ Status   : BOOT SUCCESSFUL
 root@qemuarm:~# uname -a
 Linux qemuarm 6.6.127-yocto-standard #1 SMP PREEMPT armv7l GNU/Linux
 ```
+## Phase 2 — Gateway Image with SWUpdate (Completed)
+
+### Image Produced
+
+​```
+Image name     : gateway-image
+Rootfs size    : 22 MB
+Added packages : SWUpdate v2026.05, Dropbear SSH, iproute2, ethtool, procps
+Tasks executed : 4298 tasks (4043 from cache — 6 min build)
+​```
+
+### Boot Results (QEMU)
+
+​```
+SWUpdate v2026.05        : started automatically at boot ✅
+Dropbear SSH server      : running ✅
+Mongoose web server      : listening on port 8080 ✅
+U-Boot bootloader        : detected by SWUpdate ✅
+Network eth0             : UP — 192.168.7.2/24 ✅
+OTA web interface        : accessible at http://192.168.7.2:8080 ✅
+​```
 ---
 
 ## Author
