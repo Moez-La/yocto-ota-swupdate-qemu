@@ -1,8 +1,9 @@
 # yocto-ota-swupdate-qemu
 
-![Status](https://img.shields.io/badge/status-in%20progress-yellow)
+![Status](https://img.shields.io/badge/status-phase%203%20in%20progress-orange)
 ![Platform](https://img.shields.io/badge/platform-QEMU%20ARM-blue)
 ![Build](https://img.shields.io/badge/build%20system-Yocto%20Scarthgap-green)
+![SWUpdate](https://img.shields.io/badge/SWUpdate-v2026.05-brightgreen)
 
 Embedded Linux image built with **Yocto Project (Scarthgap)** for QEMU ARM — featuring a complete OTA (Over-The-Air) update pipeline with **SWUpdate** and **A/B partition scheme** with automatic rollback via **U-Boot**.
 
@@ -12,7 +13,12 @@ Embedded Linux image built with **Yocto Project (Scarthgap)** for QEMU ARM — f
 
 This project demonstrates a production-ready embedded Linux update mechanism — the kind used in industrial equipment, automotive systems, and defense electronics deployed in the field.
 
-The system can receive a software update remotely, install it safely on a secondary partition, and automatically roll back to the previous version if the new one fails to boot.
+A custom **Network Gateway Monitor** application (written in C) runs on the embedded system and displays real-time network statistics read directly from the Linux kernel via `/proc`. The application exists in two versions to demonstrate the OTA update:
+
+- **v1.0** — Basic monitoring: IP address, RX/TX bytes, status
+- **v2.0** — Enhanced monitoring: adds CPU load, RAM usage, packet counter, and firewall status
+
+The system receives the v2.0 update remotely via HTTP, SWUpdate installs it safely, and the new features become immediately visible — demonstrating a real OTA update on an ARMv7 embedded system.
 
 ---
 
@@ -60,18 +66,32 @@ The system can receive a software update remotely, install it safely on a second
 
 ```
 yocto-ota-swupdate-qemu/
-├── poky/                    → Yocto Poky base (Scarthgap)
-├── meta-swupdate/           → SWUpdate layer (coming)
-├── meta-moez/               → Custom layer (coming)
-│   ├── recipes-core/        → Custom image recipe
-│   ├── recipes-swupdate/    → SWUpdate configuration
-│   └── recipes-app/         → Demo application
+├── meta-moez/                   → Custom Yocto layer
+│   ├── recipes-core/
+│   │   ├── images/
+│   │   │   └── gateway-image.bb       → Custom image recipe (SWUpdate + SSH + app)
+│   │   └── base-files/
+│   │       └── base-files_%.bbappend  → Adds /etc/hwrevision for SWUpdate
+│   ├── recipes-swupdate/
+│   │   └── swupdate/
+│   │       └── swupdate_%.bbappend    → SWUpdate configuration
+│   └── recipes-app/
+│       └── gateway-monitor/
+│           ├── files/
+│           │   └── gateway-monitor.c  → C application (v1.0 or v2.0)
+│           ├── gateway-monitor_1.0.bb → BitBake recipe v1.0
+│           └── gateway-monitor_2.0.bb → BitBake recipe v2.0
+├── swu/
+│   ├── sw-description               → OTA update descriptor
+│   ├── create-swu.sh                → Script to build .swu package
+│   └── gateway-update-v2.0.swu     → OTA update package (22 MB)
 ├── build/
 │   └── conf/
-│       ├── local.conf       → Build configuration
-│       └── bblayers.conf    → Active layers
-└── docs/
-    └── guide.md             → Step-by-step build guide
+│       ├── local.conf               → Build configuration (MACHINE, DL_DIR...)
+│       └── bblayers.conf            → Active layers
+├── scripts/
+│   └── setup.sh                     → Clones all layers and initializes build env
+└── README.md
 ```
 
 ---
