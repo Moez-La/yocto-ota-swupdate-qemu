@@ -105,9 +105,9 @@ yocto-ota-swupdate-qemu/
 - [x] Phase 1 — First core-image-minimal build for qemuarm
 - [x] Phase 2 — Add meta-swupdate layer
 - [x] Phase 2 — Gateway image with SWUpdate + SSH + web interface
-- [ ] Phase 3 — Configure U-Boot A/B partition scheme
-- [ ] Phase 3 — Build and test OTA update pipeline
-- [ ] Phase 3 — Validate automatic rollback mechanism
+- [x] Phase 3 — Build and test OTA update pipeline (SWUpdate successful)
+- [x] Phase 3 — gateway-monitor v1.0 → v2.0 OTA demonstrated
+- [ ] Phase 3 — Configure U-Boot A/B partition scheme + rollback
 - [ ] Phase 4 — CI/CD pipeline + full documentation
 
 ---
@@ -180,7 +180,17 @@ U-Boot bootloader        : detected by SWUpdate ✅
 Network eth0             : UP — 192.168.7.2/24 ✅
 OTA web interface        : accessible at http://192.168.7.2:8080 ✅
 ```
+### Phase 3 — OTA Update Pipeline (Completed)
 
+```
+    OTA package created    : gateway-update-v2.0.swu (22 MB)
+    Transfer method        : HTTP POST via curl to SWUpdate web interface
+    SWUpdate result        : SWUPDATE successful ✅
+    Image installed        : gateway-image v2.0 → /tmp/gateway-update.ext4
+    Gateway monitor v1.0   : Version 1.0.0 — Slot A — STATUS: NOMINAL ✅
+    Gateway monitor v2.0   : Version 2.0.0 — Slot B — STATUS: NOMINAL - ENHANCED ✅
+    New features in v2.0   : CPU load, RAM monitoring, Firewall, Packet counter ✅
+```
 
 ---
 
