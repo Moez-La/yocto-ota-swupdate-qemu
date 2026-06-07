@@ -103,8 +103,9 @@ yocto-ota-swupdate-qemu/
 
 - [x] Phase 1 — Yocto environment setup
 - [x] Phase 1 — First core-image-minimal build for qemuarm
-- [ ] Phase 2 — Add meta-swupdate layer
-- [ ] Phase 2 — Configure U-Boot A/B partition scheme
+- [x] Phase 2 — Add meta-swupdate layer
+- [x] Phase 2 — Gateway image with SWUpdate + SSH + web interface
+- [ ] Phase 3 — Configure U-Boot A/B partition scheme
 - [ ] Phase 3 — Build and test OTA update pipeline
 - [ ] Phase 3 — Validate automatic rollback mechanism
 - [ ] Phase 4 — CI/CD pipeline + full documentation
