@@ -1,0 +1,13 @@
+software =
+{
+    version = "2.0.0";
+    description = "Gateway Monitor OTA update v1.0 -> v2.0";
+    hardware-compatibility: ["1.0", "2.0", "3.0"];
+
+    images: ({
+        filename = "gateway-image-qemuarm.ext4";
+        type = "rawfile";
+        path = "/tmp/gateway-update.ext4";
+        bootloader-required = false;
+    });
+}
