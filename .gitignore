@@ -16,3 +16,4 @@ __pycache__/
 *.orig
 swu/*.ext4
 disk-ab.img
+swu/*.swu
