@@ -1,6 +1,6 @@
 # yocto-ota-swupdate-qemu
 
-![Status](https://img.shields.io/badge/status-phase%203%20in%20progress-orange)
+![Status](https://img.shields.io/badge/status-phase%204%20in%20progress-orange)
 ![Platform](https://img.shields.io/badge/platform-QEMU%20ARM-blue)
 ![Build](https://img.shields.io/badge/build%20system-Yocto%20Scarthgap-green)
 ![SWUpdate](https://img.shields.io/badge/SWUpdate-v2026.05-brightgreen)
@@ -126,9 +126,13 @@ yocto-ota-swupdate-qemu/
 - [x] Phase 2 — Add meta-swupdate layer
 - [x] Phase 2 — Gateway image with SWUpdate + SSH + web interface
 - [x] Phase 3 — A/B disk layout (GPT: uboot-env + Slot A + Slot B)
-- [x] Phase 3 — OTA pipeline tested (Slot B wiped → SWUpdate → v2.0 confirmed)
-- [ ] Phase 3 — U-Boot automatic slot selection + rollback
-- [ ] Phase 4 — CI/CD pipeline + full documentation
+- [x] Phase 3 — U-Boot 2024.01 built by Yocto, bootcmd loads boot.scr automatically
+- [x] Phase 3 — boot.scr reads bootslot from persistent /boot/uboot.env
+- [x] Phase 3 — OTA pipeline tested end-to-end — zero manual intervention
+- [x] Phase 3 — postinstall.sh switches bootslot after successful OTA
+- [ ] Phase 4 — Automatic rollback (bootcount/bootlimit via U-Boot)
+- [ ] Phase 4 — CI/CD pipeline (GitHub Actions — auto build .swu on push)
+- [ ] Phase 4 — SWUpdate package signing (RSA/AES)
 
 ---
 
@@ -200,15 +204,20 @@ U-Boot bootloader        : detected by SWUpdate ✅
 Network eth0             : UP — 192.168.7.2/24 ✅
 OTA web interface        : accessible at http://192.168.7.2:8080 ✅
 ```
-### Phase 3 — A/B OTA Pipeline (Completed)
-
-    Disk layout        : GPT 128MB — vda1 (U-Boot env) + vda2 (Slot A) + vda3 (Slot B)
-    Slot B before OTA  : wiped (dd zero) — empty partition verified
-    OTA package        : gateway-update-v2.0.swu (22 MB)
-    Transfer method    : HTTP POST via curl to SWUpdate web interface
+### Phase 3 — A/B OTA Pipeline with U-Boot Automatic Slot Selection (Completed)
+```
+    Disk layout        : GPT 300MB — vda1 (uboot-env) + vda2 (Slot A 150MB) + vda3 (Slot B 150MB)
+    Bootloader         : U-Boot 2024.01 built by Yocto for qemuarm
+    Boot script        : boot.scr loaded automatically by U-Boot bootcmd
+    Slot selection     : U-Boot reads bootslot from /boot/uboot.env (persistent)
+    Network            : eth0 configured automatically via DHCP at boot
+    hwrevision         : qemuarm:1.0 embedded permanently in rootfs
+    SWUpdate config    : -H qemuarm:1.0 configured via /etc/swupdate/conf.d/
+    OTA package        : gateway-update-v2.0.swu (51 MB — full ext4 with kernel + boot.scr)
+    Transfer method    : HTTP POST via curl to SWUpdate web interface (port 8080)
+    postinstall.sh     : writes bootslot=b to /boot/uboot.env after OTA success
     SWUpdate result    : SWUPDATE successful ✅
-    Slot B after OTA   : gateway-image v2.0 installed on /dev/vda3 ✅
-    Boot on Slot B     : Linux boots from /dev/vda3 ✅
+    Reboot             : U-Boot reads bootslot=b → boots Slot B automatically ✅
 
     gateway-monitor v1.0 (Slot A)        gateway-monitor v2.0 (Slot B)
     ----------------------------         ------------------------------
@@ -218,10 +227,11 @@ OTA web interface        : accessible at http://192.168.7.2:8080 ✅
                                          CPU load, RAM, Firewall, Packets
                                          STATUS   : NOMINAL - ENHANCED
 
-    New features in v2.0 : CPU load, RAM monitoring, Firewall, Packet counter ✅
-
-    Note: U-Boot automatic slot selection in progress.
-    Currently demonstrated with manual QEMU boot parameters.
+    Full OTA flow — zero manual intervention:
+    Boot Slot A (v1.0) → curl send .swu → SWUPDATE successful
+    → bootslot=b written → reboot → U-Boot reads bootslot=b
+    → Boot Slot B (v2.0) automatically ✅
+```
 ---
 
 ## Author
