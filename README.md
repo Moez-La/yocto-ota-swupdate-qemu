@@ -125,9 +125,9 @@ yocto-ota-swupdate-qemu/
 - [x] Phase 1 — First core-image-minimal build for qemuarm
 - [x] Phase 2 — Add meta-swupdate layer
 - [x] Phase 2 — Gateway image with SWUpdate + SSH + web interface
-- [x] Phase 3 — Build and test OTA update pipeline (SWUpdate successful)
-- [x] Phase 3 — gateway-monitor v1.0 → v2.0 OTA demonstrated
-- [ ] Phase 3 — Configure U-Boot A/B partition scheme + rollback
+- [x] Phase 3 — A/B disk layout (GPT: uboot-env + Slot A + Slot B)
+- [x] Phase 3 — OTA pipeline tested (Slot B wiped → SWUpdate → v2.0 confirmed)
+- [ ] Phase 3 — U-Boot automatic slot selection + rollback
 - [ ] Phase 4 — CI/CD pipeline + full documentation
 
 ---
@@ -200,18 +200,28 @@ U-Boot bootloader        : detected by SWUpdate ✅
 Network eth0             : UP — 192.168.7.2/24 ✅
 OTA web interface        : accessible at http://192.168.7.2:8080 ✅
 ```
-### Phase 3 — OTA Update Pipeline (Completed)
+### Phase 3 — A/B OTA Pipeline (Completed)
 
-```
-    OTA package created    : gateway-update-v2.0.swu (22 MB)
-    Transfer method        : HTTP POST via curl to SWUpdate web interface
-    SWUpdate result        : SWUPDATE successful ✅
-    Image installed        : gateway-image v2.0 → /tmp/gateway-update.ext4
-    Gateway monitor v1.0   : Version 1.0.0 — Slot A — STATUS: NOMINAL ✅
-    Gateway monitor v2.0   : Version 2.0.0 — Slot B — STATUS: NOMINAL - ENHANCED ✅
-    New features in v2.0   : CPU load, RAM monitoring, Firewall, Packet counter ✅
-```
+    Disk layout        : GPT 128MB — vda1 (U-Boot env) + vda2 (Slot A) + vda3 (Slot B)
+    Slot B before OTA  : wiped (dd zero) — empty partition verified
+    OTA package        : gateway-update-v2.0.swu (22 MB)
+    Transfer method    : HTTP POST via curl to SWUpdate web interface
+    SWUpdate result    : SWUPDATE successful ✅
+    Slot B after OTA   : gateway-image v2.0 installed on /dev/vda3 ✅
+    Boot on Slot B     : Linux boots from /dev/vda3 ✅
 
+    gateway-monitor v1.0 (Slot A)        gateway-monitor v2.0 (Slot B)
+    ----------------------------         ------------------------------
+    Version  : 1.0.0                     Version  : 2.0.0
+    Slot     : A (active)                Slot     : B (active)
+    STATUS   : NOMINAL                   *** OTA UPDATE APPLIED ***
+                                         CPU load, RAM, Firewall, Packets
+                                         STATUS   : NOMINAL - ENHANCED
+
+    New features in v2.0 : CPU load, RAM monitoring, Firewall, Packet counter ✅
+
+    Note: U-Boot automatic slot selection in progress.
+    Currently demonstrated with manual QEMU boot parameters.
 ---
 
 ## Author
