@@ -14,3 +14,5 @@ meta-swupdate/
 __pycache__/
 *.swp
 *.orig
+swu/*.ext4
+disk-ab.img

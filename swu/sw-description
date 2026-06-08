@@ -6,8 +6,7 @@ software =
 
     images: ({
         filename = "gateway-image-qemuarm.ext4";
-        type = "rawfile";
-        path = "/tmp/gateway-update.ext4";
-        bootloader-required = false;
+        type = "raw";
+        device = "/dev/vda3";
     });
 }
