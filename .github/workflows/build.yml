@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   validate:
     name: Validate Project Structure
@@ -18,30 +21,21 @@ jobs:
       - name: Check required files
         run: |
           echo "=== Checking project structure ==="
-          
-          # Meta layer
           test -f meta-moez/recipes-core/images/gateway-image.bb && echo "✅ gateway-image.bb" || exit 1
           test -f meta-moez/recipes-app/gateway-monitor/files/gateway-monitor-v1.c && echo "✅ gateway-monitor-v1.c" || exit 1
           test -f meta-moez/recipes-app/gateway-monitor/files/gateway-monitor-v2.c && echo "✅ gateway-monitor-v2.c" || exit 1
           test -f meta-moez/recipes-bsp/u-boot/files/qemu_arm_virt_defconfig_fragment.cfg && echo "✅ u-boot config" || exit 1
           test -f meta-moez/recipes-core/boot-confirm/boot-confirm_1.0.bb && echo "✅ boot-confirm recipe" || exit 1
-          
-          # SWU
           test -f swu/sw-description && echo "✅ sw-description" || exit 1
           test -f swu/postinstall.sh && echo "✅ postinstall.sh" || exit 1
           test -f swu/create-swu.sh && echo "✅ create-swu.sh" || exit 1
           test -f swu/create-swu-corrupted.sh && echo "✅ create-swu-corrupted.sh" || exit 1
-          
-          # Scripts
           test -f scripts/run-qemu.sh && echo "✅ run-qemu.sh" || exit 1
-          
           echo "=== All checks passed ==="
 
       - name: Validate sw-description syntax
         run: |
           echo "=== Validating sw-description ==="
-          cat swu/sw-description
-          # Check required fields
           grep -q "version" swu/sw-description && echo "✅ version field present"
           grep -q "hardware-compatibility" swu/sw-description && echo "✅ hardware-compatibility present"
           grep -q "postinstall.sh" swu/sw-description && echo "✅ postinstall.sh referenced"
