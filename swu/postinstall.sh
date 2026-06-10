@@ -1,5 +1,4 @@
 #!/bin/sh
-# Écrit bootslot=b dans vda1 (FAT) après OTA
 MOUNTPOINT="/mnt/ubootenv"
 mkdir -p $MOUNTPOINT
 if mount /dev/vda1 $MOUNTPOINT 2>/dev/null; then

@@ -1,8 +1,6 @@
 #!/bin/sh
-# Remet bootcount=0 si boot réussi sur Slot B
 MOUNTPOINT="/mnt/ubootenv"
 mkdir -p $MOUNTPOINT
-
 if mount /dev/vda1 $MOUNTPOINT 2>/dev/null; then
     if [ -f "$MOUNTPOINT/uboot.env" ]; then
         BOOTSLOT=$(grep "bootslot" $MOUNTPOINT/uboot.env | cut -d= -f2 | tr -d '\n\r ')

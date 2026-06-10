@@ -9,11 +9,11 @@ echo "=== Creating full ext4 image with rootfs + kernel + boot.scr ==="
 MOUNT_DIR=$(mktemp -d)
 IMG="$SWU_DIR/gateway-image-qemuarm.ext4"
 
-dd if=/dev/zero of=$IMG bs=1M count=50
-mkfs.ext4 -L slotB $IMG
+# Copie directement depuis l'image ext4 Yocto
+cp $BUILD_DIR/gateway-image-qemuarm.rootfs.ext4 $IMG
 
+# Monte et ajoute kernel + boot.scr
 sudo mount -o loop $IMG $MOUNT_DIR
-sudo tar -xjf $BUILD_DIR/gateway-image-qemuarm.rootfs.tar.bz2 -C $MOUNT_DIR/
 sudo cp $BUILD_DIR/zImage $MOUNT_DIR/boot/
 sudo cp $BOOT_SCR $MOUNT_DIR/boot/
 sudo umount $MOUNT_DIR
