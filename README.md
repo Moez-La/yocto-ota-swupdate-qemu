@@ -150,7 +150,7 @@ yocto-ota-swupdate-qemu/
 - [x] Phase 3 — postinstall.sh switches bootslot after successful OTA
 - [x] Phase 4 — Automatic rollback (bootcount/bootlimit via U-Boot + FAT env on vda1)
 - [x] Phase 4 — CI/CD pipeline (GitHub Actions — project validation on every push)
-- [ ] Phase 4 — SWUpdate package signing (RSA/AES)
+- [x] Phase 4 — SWUpdate package signing (RSA/AES)
 
 ---
 
@@ -274,6 +274,20 @@ Workflow       : .github/workflows/build.yml
 Trigger        : every push to main branch
 Validation     : project structure, sw-description, U-Boot config, gateway-monitor sources
 Status         : passing ✅
+```
+### Phase 4 — RSA Package Signing (Completed)
+```
+    Signing algorithm  : RSA 2048-bit + SHA256 (opensslRSA)
+    Private key        : swu/keys/swupdate-private.pem (gitignored)
+    Public key         : embedded in rootfs at /etc/swupdate/swupdate-public.pem
+    Config             : swupdate.cfg loaded via -f flag with public-key-file
+    sw-description     : signed automatically by create-swu.sh
+    Hash verification  : SHA256 hash required for each image and script
+
+    3 scenarios tested:
+    1. OTA non signée      → rejetée immédiatement (sw-description.sig manquant) ✅
+    2. OTA signée corrompue → acceptée RSA → installée → rollback auto 3 tentatives ✅
+    3. OTA signée valide   → Verified OK → Slot B v2.0 bootée ✅
 ```
 ---
 
