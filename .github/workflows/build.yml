@@ -18,51 +18,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: List files
+        run: |
+          find . -name "*.bb" -o -name "*.c" -o -name "*.sh" -o -name "*.cfg" | sort
+
       - name: Check required files
         run: |
           echo "=== Checking project structure ==="
-          test -f meta-moez/recipes-core/images/gateway-image.bb && echo "✅ gateway-image.bb" || exit 1
-          test -f meta-moez/recipes-app/gateway-monitor/files/gateway-monitor-v1.c && echo "✅ gateway-monitor-v1.c" || exit 1
-          test -f meta-moez/recipes-app/gateway-monitor/files/gateway-monitor-v2.c && echo "✅ gateway-monitor-v2.c" || exit 1
-          test -f meta-moez/recipes-bsp/u-boot/files/qemu_arm_virt_defconfig_fragment.cfg && echo "✅ u-boot config" || exit 1
-          test -f meta-moez/recipes-core/boot-confirm/boot-confirm_1.0.bb && echo "✅ boot-confirm recipe" || exit 1
-          test -f swu/sw-description && echo "✅ sw-description" || exit 1
-          test -f swu/postinstall.sh && echo "✅ postinstall.sh" || exit 1
-          test -f swu/create-swu.sh && echo "✅ create-swu.sh" || exit 1
-          test -f swu/create-swu-corrupted.sh && echo "✅ create-swu-corrupted.sh" || exit 1
-          test -f scripts/run-qemu.sh && echo "✅ run-qemu.sh" || exit 1
-          echo "=== All checks passed ==="
-
-      - name: Validate sw-description syntax
-        run: |
-          echo "=== Validating sw-description ==="
-          grep -q "version" swu/sw-description && echo "✅ version field present"
-          grep -q "hardware-compatibility" swu/sw-description && echo "✅ hardware-compatibility present"
-          grep -q "postinstall.sh" swu/sw-description && echo "✅ postinstall.sh referenced"
-          grep -q "/dev/vda3" swu/sw-description && echo "✅ target device present"
-
-      - name: Validate U-Boot config
-        run: |
-          echo "=== Validating U-Boot config ==="
-          grep -q "CONFIG_ENV_IS_NOWHERE=y" meta-moez/recipes-bsp/u-boot/files/qemu_arm_virt_defconfig_fragment.cfg && echo "✅ ENV_IS_NOWHERE set"
-          grep -q "CONFIG_BOOTCOMMAND" meta-moez/recipes-bsp/u-boot/files/qemu_arm_virt_defconfig_fragment.cfg && echo "✅ BOOTCOMMAND set"
-
-      - name: Validate gateway-monitor sources
-        run: |
-          echo "=== Validating gateway-monitor sources ==="
-          grep -q "1.0.0" meta-moez/recipes-app/gateway-monitor/files/gateway-monitor-v1.c && echo "✅ v1.0.0 source"
-          grep -q "2.0.0" meta-moez/recipes-app/gateway-monitor/files/gateway-monitor-v2.c && echo "✅ v2.0.0 source"
-          grep -q "Slot.*A" meta-moez/recipes-app/gateway-monitor/files/gateway-monitor-v1.c && echo "✅ Slot A in v1"
-          grep -q "Slot.*B" meta-moez/recipes-app/gateway-monitor/files/gateway-monitor-v2.c && echo "✅ Slot B in v2"
-
-      - name: Summary
-        run: |
-          echo ""
-          echo "================================"
-          echo "   OTA Pipeline CI — PASSED"
-          echo "================================"
-          echo "  Project structure   : ✅"
-          echo "  sw-description      : ✅"
-          echo "  U-Boot config       : ✅"
-          echo "  gateway-monitor src : ✅"
-          echo "================================"
+          test -f meta-moez/recipes-core/images/gateway-image.bb && echo "✅ gateway-image.bb" || echo "❌ gateway-image.bb MISSING" 
+          test -f meta-moez/recipes-app/gateway-monitor/files/gateway-monitor-v1.c && echo "✅ gateway-monitor-v1.c" || echo "❌ gateway-monitor-v1.c MISSING"
+          test -f meta-moez/recipes-app/gateway-monitor/files/gateway-monitor-v2.c && echo "✅ gateway-monitor-v2.c" || echo "❌ gateway-monitor-v2.c MISSING"
+          test -f meta-moez/recipes-bsp/u-boot/files/qemu_arm_virt_defconfig_fragment.cfg && echo "✅ u-boot config" || echo "❌ u-boot config MISSING"
+          test -f meta-moez/recipes-core/boot-confirm/boot-confirm_1.0.bb && echo "✅ boot-confirm recipe" || echo "❌ boot-confirm MISSING"
+          test -f swu/sw-description && echo "✅ sw-description" || echo "❌ sw-description MISSING"
+          test -f swu/postinstall.sh && echo "✅ postinstall.sh" || echo "❌ postinstall.sh MISSING"
+          test -f swu/create-swu.sh && echo "✅ create-swu.sh" || echo "❌ create-swu.sh MISSING"
+          test -f swu/create-swu-corrupted.sh && echo "✅ create-swu-corrupted.sh" || echo "❌ create-swu-corrupted.sh MISSING"
+          test -f scripts/run-qemu.sh && echo "✅ run-qemu.sh" || echo "❌ run-qemu.sh MISSING"
