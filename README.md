@@ -130,7 +130,7 @@ yocto-ota-swupdate-qemu/
 - [x] Phase 3 — boot.scr reads bootslot from persistent /boot/uboot.env
 - [x] Phase 3 — OTA pipeline tested end-to-end — zero manual intervention
 - [x] Phase 3 — postinstall.sh switches bootslot after successful OTA
-- [x] Phase 4 — Automatic rollback (bootcount/bootlimit via U-Boot)
+- [x] Phase 4 — Automatic rollback (bootcount/bootlimit via U-Boot + FAT env on vda1)
 - [ ] Phase 4 — CI/CD pipeline (GitHub Actions — auto build .swu on push)
 - [ ] Phase 4 — SWUpdate package signing (RSA/AES)
 
@@ -231,6 +231,23 @@ OTA web interface        : accessible at http://192.168.7.2:8080 ✅
     Boot Slot A (v1.0) → curl send .swu → SWUPDATE successful
     → bootslot=b written → reboot → U-Boot reads bootslot=b
     → Boot Slot B (v2.0) automatically ✅
+```
+### Phase 4 — Automatic Rollback via U-Boot bootcount/bootlimit (Completed)
+```
+    U-Boot env         : vda1 FAT partition — bootslot, bootcount, bootlimit
+    boot.scr           : reads/writes bootcount to vda1 FAT on every boot attempt
+    Rollback trigger   : bootcount >= bootlimit (3 failed attempts)
+    Reboot on failure  : automatic reboot after 3s if kernel load fails
+    postinstall.sh     : writes bootslot=b + bootcount=0 to vda1 FAT after OTA
+    boot-confirm       : resets bootcount=0 on successful Slot B boot (init.d S99)
+    Test packages      : gateway-update-v2.0.swu (valid OTA) + gateway-update-corrupted.swu (rollback test)
+
+    Rollback flow — zero manual intervention:
+    Corrupted OTA installed on Slot B
+    → bootcount=1 → kernel load failed → reboot in 3s (automatic)
+    → bootcount=2 → kernel load failed → reboot in 3s (automatic)
+    → bootcount=3 >= bootlimit → ROLLBACK: reverting to Slot A (automatic)
+    → Linux v1.0 Slot A recovered ✅
 ```
 ---
 
