@@ -4,6 +4,7 @@
 ![Platform](https://img.shields.io/badge/platform-QEMU%20ARM-blue)
 ![Build](https://img.shields.io/badge/build%20system-Yocto%20Scarthgap-green)
 ![SWUpdate](https://img.shields.io/badge/SWUpdate-v2026.05-brightgreen)
+![CI](https://github.com/Moez-La/yocto-ota-swupdate-qemu/actions/workflows/build.yml/badge.svg)
 
 Embedded Linux image built with **Yocto Project (Scarthgap)** for QEMU ARM — featuring a complete OTA (Over-The-Air) update pipeline with **SWUpdate** and **A/B partition scheme** with automatic rollback via **U-Boot**.
 
@@ -131,7 +132,7 @@ yocto-ota-swupdate-qemu/
 - [x] Phase 3 — OTA pipeline tested end-to-end — zero manual intervention
 - [x] Phase 3 — postinstall.sh switches bootslot after successful OTA
 - [x] Phase 4 — Automatic rollback (bootcount/bootlimit via U-Boot + FAT env on vda1)
-- [ ] Phase 4 — CI/CD pipeline (GitHub Actions — auto build .swu on push)
+- [x] Phase 4 — CI/CD pipeline (GitHub Actions — project validation on every push)
 - [ ] Phase 4 — SWUpdate package signing (RSA/AES)
 
 ---
