@@ -17,3 +17,5 @@ __pycache__/
 swu/*.ext4
 disk-ab.img
 swu/*.swu
+*.bak
+meta-moez/recipes-swupdate/swupdate/files/
