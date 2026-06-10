@@ -19,3 +19,4 @@ disk-ab.img
 swu/*.swu
 *.bak
 meta-moez/recipes-swupdate/swupdate/files/
+swu/keys/swupdate-private.pem

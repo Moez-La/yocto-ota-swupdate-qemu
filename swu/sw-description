@@ -2,21 +2,20 @@ software =
 {
     version = "2.0.0";
     description = "Gateway Monitor OTA update v1.0 -> v2.0";
-
     hardware-compatibility: ["1.0", "2.0", "3.0"];
-
     images: (
         {
             filename = "gateway-image-qemuarm.ext4";
             device = "/dev/vda3";
             type = "raw";
+            sha256 = "ea2494d8fa28af96d9604459bd09f52e30a377493f9c736cba4f5ecd88e129cd";
         }
     );
-
     scripts: (
         {
             filename = "postinstall.sh";
             type = "shellscript";
+            sha256 = "abbc47e01a445f8e372af5acc9a68d725e2d765ac760fff72766460cfe0d1c34";
         }
     );
 }
