@@ -26,25 +26,35 @@ The system receives the v2.0 update remotely via HTTP, SWUpdate installs it safe
 ## Architecture
 
 ```
-+--------------------------------------------------+
-|                    QEMU ARM                      |
-|                                                  |
-|  +-----------+  +-------------+  +------------+  |
-|  |  U-Boot   |  |   Slot A    |  |   Slot B   |  |
-|  | bootloader|  | Linux v1.0  |  | Linux v2.0 |  |
-|  |           |  |  (active)   |  |  (update)  |  |
-|  +-----------+  +-------------+  +------------+  |
-|       |                                          |
-|       +-- selects active slot + manages rollback |
-|                                                  |
-|  +----------------------------------------------+|
-|  |  SWUpdate daemon                             ||
-|  |  - receives .swu update package              ||
-|  |  - verifies integrity                        ||
-|  |  - writes to inactive slot                   ||
-|  |  - notifies U-Boot for next boot             ||
-|  +----------------------------------------------+|
-+--------------------------------------------------+
++------------------------------------------------------------------+
+|                         QEMU ARM (qemuarm)                       |
+|                                                                  |
+|  +----------+  +----------------+  +----------------+            |
+|  |   vda1   |  |     vda2       |  |     vda3       |            |
+|  | FAT 1MB  |  |  Slot A 150MB  |  |  Slot B 150MB  |            |
+|  |uboot.env |  | Linux v1.0     |  | Linux v2.0     |            |
+|  |bootslot  |  | gateway-monitor|  | gateway-monitor|            |
+|  |bootcount |  | v1.0 (active)  |  | v2.0 (target)  |            |
+|  |bootlimit |  +----------------+  +----------------+            |
+|  +----+-----+                                                    |
+|       |                                                          |
+|  +----+--------------------------------------------------+       |
+|  |              U-Boot 2024.01                           |       |
+|  |  1. loads boot.scr from Slot A at every boot          |       |
+|  |  2. reads bootslot/bootcount/bootlimit from vda1 FAT  |       |
+|  |  3. increments bootcount on Slot B boot attempt       |       |
+|  |  4. ROLLBACK to Slot A if bootcount >= bootlimit (3)  |       |
+|  |  5. auto-reboot after 3s if kernel load fails         |       |
+|  +-------------------------------------------------------+       |
+|                                                                  |
+|  +-------------------------------------------------------+       |
+|  |  SWUpdate v2026.05                                    |       |
+|  |  - receives .swu package via HTTP (port 8080)         |       |
+|  |  - verifies hardware compatibility (qemuarm:1.0)      |       |
+|  |  - writes image to inactive slot (/dev/vda3)          |       |
+|  |  - runs postinstall.sh → writes bootslot=b to vda1    |       |
+|  +-------------------------------------------------------+       |
++------------------------------------------------------------------+
 ```
 
 ---
@@ -55,8 +65,9 @@ The system receives the v2.0 update remotely via HTTP, SWUpdate installs it safe
 |------------------|--------------------------------|
 | Build system     | Yocto Project — Scarthgap 5.0  |
 | Target machine   | QEMU ARM (qemuarm)             |
-| Bootloader       | U-Boot                         |
-| Update manager   | SWUpdate                       |
+| Bootloader       | U-Boot 2024.01                 |
+| Update manager   | SWUpdate v2026.05              |
+| Kernel           | Linux 6.6.127-yocto-standard   |
 | Partition scheme | A/B dual partition with rollback|
 | Architecture     | ARMv7 (Cortex-A15)             |
 | Host OS          | Ubuntu 22.04 LTS               |
@@ -67,32 +78,38 @@ The system receives the v2.0 update remotely via HTTP, SWUpdate installs it safe
 
 ```
 yocto-ota-swupdate-qemu/
-├── meta-moez/                   → Custom Yocto layer
+├── .github/workflows/build.yml            → CI/CD GitHub Actions
+├── .gitignore
+├── README.md
+├── build/conf/
+│   ├── bblayers.conf                      → poky + meta-oe + meta-swupdate + meta-moez
+│   └── local.conf                         → MACHINE=qemuarm + IMAGE_ROOTFS_EXTRA_SPACE=65536
+├── meta-moez/
+│   ├── recipes-app/gateway-monitor/
+│   │   ├── files/gateway-monitor-v1.c     → C source v1.0 (Slot A)
+│   │   ├── files/gateway-monitor-v2.c     → C source v2.0 (Slot B)
+│   │   └── gateway-monitor_1.0.bb         → BitBake recipe v1.0
+│   ├── recipes-bsp/u-boot/
+│   │   ├── files/qemu_arm_virt_defconfig_fragment.cfg → ENV_IS_NOWHERE + BOOTCOMMAND
+│   │   └── u-boot_%.bbappend
 │   ├── recipes-core/
-│   │   ├── images/
-│   │   │   └── gateway-image.bb       → Custom image recipe (SWUpdate + SSH + app)
-│   │   └── base-files/
-│   │       └── base-files_%.bbappend  → Adds /etc/hwrevision for SWUpdate
-│   ├── recipes-swupdate/
-│   │   └── swupdate/
-│   │       └── swupdate_%.bbappend    → SWUpdate configuration
-│   └── recipes-app/
-│       └── gateway-monitor/
-│           ├── files/
-│           │   └── gateway-monitor.c  → C application (v1.0 or v2.0)
-│           ├── gateway-monitor_1.0.bb → BitBake recipe v1.0
-│           └── gateway-monitor_2.0.bb → BitBake recipe v2.0
-├── swu/
-│   ├── sw-description               → OTA update descriptor
-│   ├── create-swu.sh                → Script to build .swu package
-│   └── gateway-update-v2.0.swu     → OTA update package (22 MB)
-├── build/
-│   └── conf/
-│       ├── local.conf               → Build configuration (MACHINE, DL_DIR...)
-│       └── bblayers.conf            → Active layers
+│   │   ├── base-files/base-files_%.bbappend   → hwrevision + SWUpdate conf.d
+│   │   ├── boot-confirm/
+│   │   │   ├── boot-confirm_1.0.bb            → Boot confirmation (init.d S99)
+│   │   │   └── files/boot-confirm.sh          → Resets bootcount=0 on Slot B boot
+│   │   ├── images/gateway-image.bb            → Custom image recipe
+│   │   └── init-ifupdown/init-ifupdown_%.bbappend → eth0 auto DHCP
+│   └── recipes-swupdate/swupdate/swupdate_%.bbappend → SWUpdate ARGS
 ├── scripts/
-│   └── setup.sh                     → Clones all layers and initializes build env
-└── README.md
+│   ├── create-disk.sh                     → Creates GPT disk (vda1+vda2+vda3)
+│   ├── run-qemu.sh                        → Launches QEMU
+│   └── setup.sh                           → Initializes build env
+└── swu/
+    ├── create-swu-corrupted.sh            → Builds corrupted OTA (rollback test)
+    ├── create-swu.sh                      → Builds gateway-update-v2.0.swu
+    ├── postinstall.sh                     → Writes bootslot=b to vda1 FAT
+    ├── sw-description                     → OTA descriptor (v1.0 → v2.0)
+    └── sw-description-corrupted           → OTA descriptor for rollback test
 ```
 
 ---
@@ -128,7 +145,7 @@ yocto-ota-swupdate-qemu/
 - [x] Phase 2 — Gateway image with SWUpdate + SSH + web interface
 - [x] Phase 3 — A/B disk layout (GPT: uboot-env + Slot A + Slot B)
 - [x] Phase 3 — U-Boot 2024.01 built by Yocto, bootcmd loads boot.scr automatically
-- [x] Phase 3 — boot.scr reads bootslot from persistent /boot/uboot.env
+- [x] Phase 3 — boot.scr reads bootslot from vda1 FAT (persistent)
 - [x] Phase 3 — OTA pipeline tested end-to-end — zero manual intervention
 - [x] Phase 3 — postinstall.sh switches bootslot after successful OTA
 - [x] Phase 4 — Automatic rollback (bootcount/bootlimit via U-Boot + FAT env on vda1)
@@ -210,13 +227,13 @@ OTA web interface        : accessible at http://192.168.7.2:8080 ✅
     Disk layout        : GPT 300MB — vda1 (uboot-env) + vda2 (Slot A 150MB) + vda3 (Slot B 150MB)
     Bootloader         : U-Boot 2024.01 built by Yocto for qemuarm
     Boot script        : boot.scr loaded automatically by U-Boot bootcmd
-    Slot selection     : U-Boot reads bootslot from /boot/uboot.env (persistent)
+    Slot selection  : U-Boot reads bootslot from vda1 FAT (persistent)
     Network            : eth0 configured automatically via DHCP at boot
     hwrevision         : qemuarm:1.0 embedded permanently in rootfs
     SWUpdate config    : -H qemuarm:1.0 configured via /etc/swupdate/conf.d/
-    OTA package        : gateway-update-v2.0.swu (51 MB — full ext4 with kernel + boot.scr)
+    OTA package     : gateway-update-v2.0.swu (86MB — full ext4 with kernel + boot.scr)
     Transfer method    : HTTP POST via curl to SWUpdate web interface (port 8080)
-    postinstall.sh     : writes bootslot=b to /boot/uboot.env after OTA success
+    postinstall.sh  : writes bootslot=b to vda1 FAT after OTA
     SWUpdate result    : SWUPDATE successful ✅
     Reboot             : U-Boot reads bootslot=b → boots Slot B automatically ✅
 
@@ -249,6 +266,14 @@ OTA web interface        : accessible at http://192.168.7.2:8080 ✅
     → bootcount=2 → kernel load failed → reboot in 3s (automatic)
     → bootcount=3 >= bootlimit → ROLLBACK: reverting to Slot A (automatic)
     → Linux v1.0 Slot A recovered ✅
+```
+### CI/CD — GitHub Actions (Completed)
+
+```
+Workflow       : .github/workflows/build.yml
+Trigger        : every push to main branch
+Validation     : project structure, sw-description, U-Boot config, gateway-monitor sources
+Status         : passing ✅
 ```
 ---
 
