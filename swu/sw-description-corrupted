@@ -1,0 +1,19 @@
+software =
+{
+    version = "2.0.0-corrupted";
+    description = "CORRUPTED OTA — rollback test";
+    hardware-compatibility: ["1.0", "2.0", "3.0"];
+    images: (
+        {
+            filename = "gateway-image-corrupted.ext4";
+            device = "/dev/vda3";
+            type = "raw";
+        }
+    );
+    scripts: (
+        {
+            filename = "postinstall.sh";
+            type = "shellscript";
+        }
+    );
+}

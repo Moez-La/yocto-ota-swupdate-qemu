@@ -1,0 +1,14 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          boot-confirm
+# Required-Start:    $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# Short-Description: Confirm successful boot — reset bootcount
+### END INIT INFO
+
+case "$1" in
+    start)
+        /usr/bin/boot-confirm.sh
+        ;;
+esac

@@ -1,6 +1,11 @@
 #!/bin/sh
-# Écrire bootslot=b dans /boot/uboot.env sur Slot A
-mount /dev/vda2 /mnt || true
-printf "bootslot=b\n" > /mnt/boot/uboot.env
-umount /mnt || true
-echo "bootslot set to b in /boot/uboot.env"
+# Écrit bootslot=b dans vda1 (FAT) après OTA
+MOUNTPOINT="/mnt/ubootenv"
+mkdir -p $MOUNTPOINT
+if mount /dev/vda1 $MOUNTPOINT 2>/dev/null; then
+    printf "bootcount=0\nbootlimit=3\nbootslot=b\n" > $MOUNTPOINT/uboot.env
+    umount $MOUNTPOINT
+    echo "bootslot set to b in vda1 FAT"
+else
+    echo "ERROR: cannot mount vda1"
+fi
