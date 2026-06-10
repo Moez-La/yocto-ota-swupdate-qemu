@@ -49,8 +49,8 @@ jobs:
         run: |
           grep -q "1.0.0" meta-moez/recipes-app/gateway-monitor/files/gateway-monitor-v1.c && echo "✅ v1.0.0"
           grep -q "2.0.0" meta-moez/recipes-app/gateway-monitor/files/gateway-monitor-v2.c && echo "✅ v2.0.0"
-          grep -q "Slot.*A" meta-moez/recipes-app/gateway-monitor/files/gateway-monitor-v1.c && echo "✅ Slot A in v1"
-          grep -q "Slot.*B" meta-moez/recipes-app/gateway-monitor/files/gateway-monitor-v2.c && echo "✅ Slot B in v2"
+          grep -q '"A"' meta-moez/recipes-app/gateway-monitor/files/gateway-monitor-v1.c && echo "✅ Slot A in v1"
+          grep -q '"B"' meta-moez/recipes-app/gateway-monitor/files/gateway-monitor-v2.c && echo "✅ Slot B in v2"
 
       - name: Summary
         run: |
