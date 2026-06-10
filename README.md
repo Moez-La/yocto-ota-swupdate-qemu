@@ -130,7 +130,7 @@ yocto-ota-swupdate-qemu/
 - [x] Phase 3 — boot.scr reads bootslot from persistent /boot/uboot.env
 - [x] Phase 3 — OTA pipeline tested end-to-end — zero manual intervention
 - [x] Phase 3 — postinstall.sh switches bootslot after successful OTA
-- [ ] Phase 4 — Automatic rollback (bootcount/bootlimit via U-Boot)
+- [x] Phase 4 — Automatic rollback (bootcount/bootlimit via U-Boot)
 - [ ] Phase 4 — CI/CD pipeline (GitHub Actions — auto build .swu on push)
 - [ ] Phase 4 — SWUpdate package signing (RSA/AES)
 
