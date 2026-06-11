@@ -1,6 +1,6 @@
 # yocto-ota-swupdate-qemu
 
-![Status](https://img.shields.io/badge/status-phase%204%20completed-brightgreen)
+![Status](https://img.shields.io/badge/status-completed-brightgreen)
 ![Platform](https://img.shields.io/badge/platform-QEMU%20ARM-blue)
 ![Build](https://img.shields.io/badge/build%20system-Yocto%20Scarthgap-green)
 ![SWUpdate](https://img.shields.io/badge/SWUpdate-v2026.05-brightgreen)
@@ -191,7 +191,7 @@ yocto-ota-swupdate-qemu/
 - [x] Phase 4 — Automatic rollback (bootcount/bootlimit via U-Boot + FAT env on vda1)
 - [x] Phase 4 — CI/CD pipeline (GitHub Actions — project validation on every push)
 - [x] Phase 4 — SWUpdate package signing (RSA 2048-bit + SHA256)
-
+- [x] Bonus — OTA via internet depuis smartphone (ngrok) 
 ---
 
 ## Why This Project
