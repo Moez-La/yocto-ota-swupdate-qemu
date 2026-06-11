@@ -15,3 +15,4 @@ IMAGE_INSTALL += " \
 IMAGE_FEATURES += "ssh-server-dropbear"
 IMAGE_INSTALL += " gateway-monitor"
 IMAGE_INSTALL:append = " boot-confirm"
+IMAGE_INSTALL:append = " libubootenv-bin"
