@@ -16,7 +16,7 @@ Embedded Linux image built with **Yocto Project (Scarthgap)** for QEMU ARM — f
 
 > curl sends the signed `.swu` package directly to SWUpdate via `localhost:8080`. Three security scenarios demonstrated: unsigned package rejected, signed corrupted package triggers automatic rollback after 3 boot failures, signed valid package installs successfully on Slot B.
 
-[![Local OTA Demo](https://img.youtube.com/vi/q1bFOdNw2aE/hqdefault.jpg)](https://youtu.be/q1bFOdNw2aE)
+[![Local OTA Demo](https://img.youtube.com/vi/q1bFOdNw2aE/maxresdefault.jpg](https://youtu.be/q1bFOdNw2aE)
 
 ---
 
