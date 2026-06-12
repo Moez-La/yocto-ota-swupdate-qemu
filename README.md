@@ -16,7 +16,7 @@ Embedded Linux image built with **Yocto Project (Scarthgap)** for QEMU ARM — f
 
 > curl sends the signed `.swu` package directly to SWUpdate via `localhost:8080`. Three security scenarios demonstrated: unsigned package rejected, signed corrupted package triggers automatic rollback after 3 boot failures, signed valid package installs successfully on Slot B.
 
-<video src="demo/demo-local.mp4" controls width="100%"></video>
+[![Local OTA Demo](https://img.youtube.com/vi/q1bFOdNw2aE/maxresdefault.jpg)](https://youtu.be/q1bFOdNw2aE)
 
 ---
 
@@ -24,7 +24,7 @@ Embedded Linux image built with **Yocto Project (Scarthgap)** for QEMU ARM — f
 
 > The `.swu` package is uploaded from a smartphone connected on a completely different network (4G mobile data) through a public ngrok tunnel. Three security scenarios demonstrated remotely: unsigned package rejected, signed corrupted package triggers automatic rollback after 3 boot failures, signed valid package installs successfully on Slot B — demonstrating real-world remote OTA from anywhere in the world.
 
-<video src="demo/demo-remote.mp4" controls width="100%"></video>
+[![Remote OTA Demo](https://img.youtube.com/vi/6k4kBoaxgzM/maxresdefault.jpg)](https://youtu.be/6k4kBoaxgzM)
 
 ---
 
