@@ -22,3 +22,5 @@ meta-moez/recipes-swupdate/swupdate/files/
 swu/keys/swupdate-private.pem
 secureboot/keys/fit-private.key
 secureboot/fit/fit-private.key
+secureboot/keys/fit-private.key
+secureboot/fit/fit-private.key
