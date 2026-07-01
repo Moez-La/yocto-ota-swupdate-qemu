@@ -6,7 +6,7 @@
 ![SWUpdate](https://img.shields.io/badge/SWUpdate-v2026.05-brightgreen)
 ![CI](https://github.com/Moez-La/yocto-ota-swupdate-qemu/actions/workflows/build.yml/badge.svg)
 
-Embedded Linux image built with **Yocto Project (Scarthgap)** for QEMU ARM — featuring a complete OTA (Over-The-Air) update pipeline with **SWUpdate**, **A/B partition scheme**, automatic rollback via **U-Boot**, and **RSA package signing**. OTA updates can be sent from any device on any network via internet tunnel.
+Embedded Linux image built with **Yocto Project (Scarthgap)** for QEMU ARM — featuring a complete OTA (Over-The-Air) update pipeline with **SWUpdate**, **A/B partition scheme**, automatic rollback via **U-Boot**, **RSA package signing**, **U-Boot Secure Boot** (FIT image signature verification), and **dynamic A/B slot targeting**. OTA updates can be sent from any device on any network via internet tunnel.
 
 ---
 
@@ -22,9 +22,17 @@ Embedded Linux image built with **Yocto Project (Scarthgap)** for QEMU ARM — f
 
 ### Remote OTA — Smartphone via 4G Mobile Data
 
-> The `.swu` package is uploaded from a smartphone connected on a completely different network (4G mobile data) through a public ngrok tunnel. Three security scenarios demonstrated remotely: unsigned package rejected, signed corrupted package triggers automatic rollback after 3 boot failures, signed valid package installs successfully on Slot B — demonstrating real-world remote OTA from anywhere in the world.
+> The `.swu` package is uploaded from a smartphone connected on a completely different network (4G mobile data) through a public ngrok tunnel. Three security scenarios demonstrated remotely: unsigned package rejected, signed corrupted package triggers automatic rollback after 3 boot failures, signed valid package installs successfully on Slot B.
 
 [![Remote OTA Demo](https://img.youtube.com/vi/6k4kBoaxgzM/maxresdefault.jpg)](https://youtu.be/6k4kBoaxgzM)
+
+---
+
+### Phase 5 & 6 — Secure Boot + Dynamic A/B Slot + v1→v2→v3
+
+> Full end-to-end demo: system starts on Slot A with gateway-monitor v1.0. First OTA sends v2.0 — preinst.sh detects Slot A as active and automatically targets Slot B (inactive). U-Boot verifies the RSA-signed FIT image before booting. Second OTA sends v3.0 from Slot B — preinst.sh detects Slot B and targets Slot A. The active slot is read dynamically from `/proc/cmdline` at every boot — never hardcoded.
+
+[![Phase 5 & 6 Demo](https://img.youtube.com/vi/ruY73xMhIy8/hqdefault.jpg)](https://youtu.be/ruY73xMhIy8)
 
 ---
 
@@ -32,12 +40,13 @@ Embedded Linux image built with **Yocto Project (Scarthgap)** for QEMU ARM — f
 
 This project demonstrates a production-ready embedded Linux update mechanism — the kind used in industrial equipment, automotive systems, and defense electronics deployed in the field.
 
-A custom **Network Gateway Monitor** application (written in C) runs on the embedded system and displays real-time network statistics read directly from the Linux kernel via `/proc`. The application exists in two versions to demonstrate the OTA update:
+A custom **Network Gateway Monitor** application (written in C) runs on the embedded system and displays real-time network statistics read directly from the Linux kernel via `/proc`. The application now exists in three versions, each with the active slot read dynamically from `/proc/cmdline`:
 
 - **v1.0** — Basic monitoring: IP address, RX/TX bytes, status
-- **v2.0** — Enhanced monitoring: adds CPU load, RAM usage, packet counter, and firewall status
+- **v2.0** — Enhanced monitoring: CPU load, RAM usage, packet counter, firewall status
+- **v3.0** — Advanced monitoring: real-time bandwidth RX/TX (KB/s), dropped packets, process count, adaptive health monitor
 
-The system receives the v2.0 update remotely via HTTP, SWUpdate verifies the RSA signature and SHA256 hashes, installs it safely on the inactive slot, and the new features become immediately visible — demonstrating a real OTA update on an ARMv7 embedded system.
+The system receives updates remotely via HTTP, SWUpdate verifies the RSA signature and SHA256 hashes, installs safely on the **dynamically detected inactive slot**, and the new features become immediately visible after reboot — demonstrating a real OTA update on an ARMv7 embedded system with full chain of trust.
 
 ---
 
@@ -50,36 +59,40 @@ The system receives the v2.0 update remotely via HTTP, SWUpdate verifies the RSA
 |  +----------+  +----------------+  +----------------+            |
 |  |   vda1   |  |     vda2       |  |     vda3       |            |
 |  | FAT 1MB  |  |  Slot A 150MB  |  |  Slot B 150MB  |            |
-|  |uboot.env |  | Linux v1.0     |  | Linux v2.0     |            |
-|  |bootslot  |  | gateway-monitor|  | gateway-monitor|            |
-|  |bootcount |  | v1.0 (active)  |  | v2.0 (target)  |            |
+|  |uboot.env |  | Linux vX.0     |  | Linux vY.0     |            |
+|  |bootslot  |  | kernel.itb     |  | kernel.itb     |            |
+|  |bootcount |  | (signed FIT)   |  | (signed FIT)   |            |
 |  |bootlimit |  +----------------+  +----------------+            |
 |  +----+-----+                                                    |
 |       |                                                          |
 |  +----+--------------------------------------------------+       |
-|  |              U-Boot 2024.01                           |       |
-|  |  1. loads boot.scr from Slot A at every boot          |       |
-|  |  2. reads bootslot/bootcount/bootlimit from vda1 FAT  |       |
-|  |  3. increments bootcount on Slot B boot attempt       |       |
-|  |  4. ROLLBACK to Slot A if bootcount >= bootlimit (3)  |       |
-|  |  5. auto-reboot after 3s if kernel load fails         |       |
+|  |              U-Boot 2024.01 (Secure Boot)             |       |
+|  |  - RSA public key embedded in control DTB at build    |       |
+|  |  - loads boot.scr from active slot at every boot      |       |
+|  |  - reads bootslot/bootcount/bootlimit from vda1 FAT   |       |
+|  |  - verifies FIT image RSA signature before boot       |       |
+|  |    -> Verified OK -> boots kernel                     |       |
+|  |    -> Invalid signature -> boot REFUSED               |       |
+|  |  - increments bootcount on new slot boot attempt      |       |
+|  |  - ROLLBACK to previous slot if bootcount >= 3        |       |
 |  +-------------------------------------------------------+       |
 |                                                                  |
 |  +-------------------------------------------------------+       |
 |  |  SWUpdate v2026.05                                    |       |
 |  |  - receives .swu package via HTTP (port 8080)         |       |
-|  |  - verifies RSA signature (sw-description.sig)        |       |
-|  |  - verifies SHA256 hash of each artifact              |       |
-|  |  - verifies hardware compatibility (qemuarm:1.0)      |       |
-|  |  - writes image to inactive slot (/dev/vda3)          |       |
-|  |  - runs postinstall.sh → writes bootslot=b to vda1    |       |
+|  |  - runs preinst.sh -> detects active slot from vda1   |       |
+|  |  - creates /dev/target_slot -> inactive slot device   |       |
+|  |  - verifies RSA signature + SHA256 hashes             |       |
+|  |  - writes image to /dev/target_slot (always inactive) |       |
+|  |  - runs postinstall.sh -> writes opposite bootslot    |       |
+|  |    to vda1 FAT + creates uboot.env on target slot     |       |
 |  +-------------------------------------------------------+       |
 |                                                                  |
 |  +-------------------------------------------------------+       |
 |  |  libubootenv                                          |       |
-|  |  - fw_env.config → /var/lib/swupdate/uboot.env       |       |
-|  |  - allows SWUpdate to persist update state           |       |
-|  |  - enables clean SWUPDATE successful log             |       |
+|  |  - fw_env.config -> /var/lib/swupdate/uboot.env      |       |
+|  |  - allows SWUpdate to persist update state            |       |
+|  |  - enables clean SWUPDATE successful log              |       |
 |  +-------------------------------------------------------+       |
 |                                                                  |
 |  +-------------------------------------------------------+       |
@@ -95,19 +108,21 @@ The system receives the v2.0 update remotely via HTTP, SWUpdate verifies the RSA
 
 ## Stack
 
-| Component        | Details                          |
-|------------------|----------------------------------|
-| Build system     | Yocto Project — Scarthgap 5.0    |
-| Target machine   | QEMU ARM (qemuarm)               |
-| Bootloader       | U-Boot 2024.01                   |
-| Update manager   | SWUpdate v2026.05                |
-| Kernel           | Linux 6.6.127-yocto-standard     |
-| Partition scheme | A/B dual partition with rollback  |
-| Architecture     | ARMv7 (Cortex-A15)               |
-| Signing          | RSA 2048-bit + SHA256            |
-| Env management   | libubootenv (file-based)         |
-| Remote tunnel    | ngrok (integrated in run-qemu.sh)|
-| Host OS          | Ubuntu 22.04 LTS                 |
+| Component          | Details                                          |
+|--------------------|--------------------------------------------------|
+| Build system       | Yocto Project — Scarthgap 5.0                    |
+| Target machine     | QEMU ARM (qemuarm)                               |
+| Bootloader         | U-Boot 2024.01 (Secure Boot, FIT signing)        |
+| Update manager     | SWUpdate v2026.05                                |
+| Kernel             | Linux 6.6.127-yocto-standard                     |
+| Partition scheme   | A/B dual partition with rollback                 |
+| Architecture       | ARMv7 (Cortex-A15)                               |
+| OTA Signing        | RSA 2048-bit + SHA256                            |
+| Boot Signing       | RSA 2048-bit FIT image (U-Boot Verified Boot)    |
+| Slot targeting     | Dynamic — preinst.sh detects active slot at runtime |
+| Env management     | libubootenv (file-based)                         |
+| Remote tunnel      | ngrok (integrated in run-qemu.sh)                |
+| Host OS            | Ubuntu 22.04 LTS                                 |
 
 ---
 
@@ -115,121 +130,216 @@ The system receives the v2.0 update remotely via HTTP, SWUpdate verifies the RSA
 
 ```
 yocto-ota-swupdate-qemu/
-├── .github/workflows/build.yml            → CI/CD GitHub Actions (validation on push)
+├── .github/workflows/build.yml
 ├── .gitignore
 ├── README.md
 ├── demo/
-│   ├── demo-local.gif                     → Local OTA demo (curl from same PC)
-│   └── demo-remote.gif                    → Remote OTA demo (smartphone via 4G + ngrok)
+│   ├── demo-local.mp4
+│   └── demo-remote.mp4
 ├── build/conf/
-│   ├── bblayers.conf                      → poky + meta-oe + meta-swupdate + meta-moez
-│   └── local.conf                         → MACHINE=qemuarm + IMAGE_ROOTFS_EXTRA_SPACE=65536
+│   ├── bblayers.conf
+│   └── local.conf
 ├── meta-moez/
 │   ├── recipes-app/gateway-monitor/
-│   │   ├── files/gateway-monitor-v1.c     → C source v1.0 (Slot A — basic monitoring)
-│   │   ├── files/gateway-monitor-v2.c     → C source v2.0 (Slot B — enhanced monitoring)
-│   │   └── gateway-monitor_1.0.bb         → BitBake recipe v1.0
+│   │   ├── files/gateway-monitor-v1.c     -> C source v1.0 (dynamic slot, basic monitoring)
+│   │   ├── files/gateway-monitor-v2.c     -> C source v2.0 (dynamic slot, enhanced monitoring)
+│   │   ├── files/gateway-monitor-v3.c     -> C source v3.0 (bandwidth, health, process count)
+│   │   └── gateway-monitor_1.0.bb
 │   ├── recipes-bsp/u-boot/
-│   │   ├── files/qemu_arm_virt_defconfig_fragment.cfg → ENV_IS_NOWHERE + BOOTCOMMAND
-│   │   └── u-boot_%.bbappend              → U-Boot custom config fragment
+│   │   ├── files/qemu_arm_virt_defconfig_fragment.cfg
+│   │   ├── files/secureboot.cfg           -> CONFIG_FIT_SIGNATURE + CONFIG_RSA
+│   │   ├── files/qemu-arm-pubkey.dtsi     -> RSA public key embedded in U-Boot DTB
+│   │   ├── files/fit-public.crt           -> RSA public certificate
+│   │   └── u-boot_%.bbappend
 │   ├── recipes-core/
-│   │   ├── base-files/base-files_%.bbappend   → hwrevision + fw_env.config + SWUpdate conf.d
+│   │   ├── base-files/base-files_%.bbappend
 │   │   ├── boot-confirm/
-│   │   │   ├── boot-confirm_1.0.bb            → Boot confirmation recipe (init.d S99)
-│   │   │   └── files/boot-confirm.sh          → Resets bootcount=0 on successful Slot B boot
-│   │   ├── images/gateway-image.bb            → Custom image recipe (SWUpdate + SSH + libubootenv)
-│   │   └── init-ifupdown/init-ifupdown_%.bbappend → eth0 auto DHCP at boot
+│   │   │   ├── boot-confirm_1.0.bb
+│   │   │   └── files/boot-confirm.sh
+│   │   ├── images/gateway-image.bb
+│   │   └── init-ifupdown/init-ifupdown_%.bbappend
 │   └── recipes-swupdate/swupdate/
-│       ├── swupdate_%.bbappend            → SWUpdate ARGS (-l 3) + RSA public key + signing config
+│       ├── swupdate_%.bbappend
 │       └── files/
-│           ├── swupdate-public.pem        → RSA public key embedded in rootfs
-│           ├── swupdate-runtime.cfg       → SWUpdate runtime config (public-key-file + loglevel=3)
-│           └── swupdate-signing.cfg       → Kconfig fragment (SIGNED_IMAGES=y + SIGALG_RAWRSA=y)
+│           ├── swupdate-public.pem
+│           ├── swupdate-runtime.cfg
+│           └── swupdate-signing.cfg
+├── secureboot/
+│   ├── keys/
+│   │   └── fit-public.crt                 -> RSA public certificate (private key gitignored)
+│   ├── fit/
+│   │   ├── kernel.its                     -> FIT Image Tree Source
+│   │   ├── kernel.itb                     -> Signed FIT image (kernel + RSA signature)
+│   │   └── pubkey.dtb                     -> Public key as device tree node
+│   ├── boot.cmd                           -> U-Boot boot script (A/B + rollback + FIT verify)
+│   └── boot.scr                           -> Compiled U-Boot boot script
 ├── scripts/
-│   ├── create-disk.sh                     → Creates GPT disk (vda1 FAT + vda2 SlotA + vda3 SlotB)
-│   ├── run-qemu.sh                        → Launches QEMU + ngrok tunnel (URL displayed at startup)
-│   └── setup.sh                           → Clones layers and initializes build env
+│   ├── create-disk.sh
+│   ├── run-qemu.sh
+│   └── setup.sh
 └── swu/
     ├── keys/
-    │   └── swupdate-public.pem            → RSA public key (private key gitignored)
-    ├── create-swu.sh                      → Builds gateway-update-v2.0.swu (signed + SHA256)
-    ├── create-swu-corrupted.sh            → Builds unsigned corrupted OTA (RSA rejection test)
-    ├── create-swu-corrupted-signed.sh     → Builds signed corrupted OTA (rollback test)
-    ├── postinstall.sh                     → Writes bootslot=b to vda1 FAT after OTA
-    ├── sw-description                     → OTA descriptor (v1.0 → v2.0) with SHA256 hashes
-    ├── sw-description.sig                 → RSA signature of sw-description
-    └── sw-description-corrupted           → OTA descriptor for unsigned rollback test
+    │   └── swupdate-public.pem
+    ├── create-swu.sh                      -> Builds signed .swu with preinst + postinstall
+    ├── create-swu-corrupted.sh
+    ├── create-swu-corrupted-signed.sh
+    ├── preinst.sh                         -> Detects active slot, creates /dev/target_slot
+    ├── postinstall.sh                     -> Reads vda1 FAT, writes opposite bootslot
+    ├── sw-description                     -> device=/dev/target_slot (dynamic)
+    ├── sw-description.sig
+    └── sw-description-corrupted
 ```
 
 ---
 
-## OTA Update Flow
+## OTA Update Flow — Dynamic Slot Targeting
 
 ```
-1. System boots on Slot A (v1.0) — normal operation
+System active on Slot X (any version)
          |
-2. SWUpdate receives update package via HTTP (local or ngrok)
+SWUpdate receives .swu package via HTTP
          |
-3. SWUpdate verifies RSA signature + SHA256 hashes
+preinst.sh runs BEFORE image write:
+  - mounts vda1 FAT
+  - reads bootslot (X) from uboot.env
+  - computes inactive slot Y (opposite of X)
+  - creates symlink: /dev/target_slot -> /dev/vdaY
          |
-         +---> Signature invalid? → REJECTED immediately ✅
+SWUpdate verifies RSA signature + SHA256 hashes
          |
-4. SWUpdate writes v2.0 to Slot B (Slot A untouched)
+         +---> Signature invalid? -> REJECTED immediately
          |
-5. postinstall.sh writes bootslot=b to vda1 FAT
+SWUpdate writes new image to /dev/target_slot (Slot Y — always inactive)
          |
-6. libubootenv persists update state → SWUPDATE successful ! ✅
+postinstall.sh runs AFTER image write:
+  - re-reads vda1 FAT independently
+  - writes bootslot=Y + bootcount=0 to vda1 FAT
+  - creates /var/lib/swupdate/uboot.env on Slot Y
+  -> SWUPDATE successful !
          |
-7. System reboots automatically
+System reboots
          |
-         +---> Slot B boots OK?
+U-Boot reads bootslot=Y from vda1 FAT
+         |
+U-Boot loads kernel.itb from Slot Y
+         |
+U-Boot verifies RSA signature (Secure Boot)
+  -> Verified OK -> boots kernel
+  -> Invalid    -> boot REFUSED
+         |
+         +---> Slot Y boots OK?
                |
-               YES → boot-confirm resets bootcount=0
-                   → Slot B v2.0 becomes active ✅
+               YES -> boot-confirm resets bootcount=0
+                   -> Slot Y becomes new active slot
                |
-               NO  → U-Boot increments bootcount automatically
-                   → auto-reboot after 3s if kernel fails
-                   → ROLLBACK to Slot A after 3 failed attempts ✅
+               NO  -> bootcount++ -> reboot
+                   -> after 3 failures -> ROLLBACK to Slot X
 ```
 
 ---
 
-## Remote OTA Flow
+## Dynamic Slot Targeting — Key Innovation
+
+Before Phase 6, `sw-description` had `/dev/vda3` hardcoded — sending an OTA while on Slot B would overwrite the running system.
+
+After Phase 6:
 
 ```
-Smartphone (4G) ──────► ngrok public URL ──────► localhost:8080
-                                                        │
-                                              SWUpdate receives .swu
-                                                        │
-                                              RSA signature verified
-                                                        │
-                                              Image written to Slot B
-                                                        │
-                                              SWUPDATE successful ! ✅
-                                                        │
-                                              System reboots → Slot B v2.0
+sw-description:  device = "/dev/target_slot"   (never hardcoded)
+
+preinst.sh logic:
+  if bootslot == "a":
+    /dev/target_slot -> /dev/vda3  (Slot B, inactive)
+    next bootslot = "b"
+  else:
+    /dev/target_slot -> /dev/vda2  (Slot A, inactive)
+    next bootslot = "a"
 ```
+
+This makes the pipeline truly bidirectional and infinite:
+
+```
+Slot A v1.0 -> OTA v2.0 -> Slot B v2.0 -> OTA v3.0 -> Slot A v3.0 -> ...
+```
+
+---
+
+## Secure Boot — Chain of Trust
+
+```
+Mechanism   : U-Boot Verified Boot via signed FIT (Flattened Image Tree)
+Algorithm   : RSA 2048-bit + SHA256
+Private key : secureboot/keys/fit-private.key (gitignored)
+Public key  : compiled into U-Boot control DTB at build time
+```
+
+```
+Boot sequence:
+
+U-Boot (RSA public key compiled in)
+  -> loads kernel.itb from active slot
+  -> ## Loading kernel from FIT Image at 44000000 ...
+  ->    Using 'conf-1' configuration
+  ->    Verifying Hash Integrity ... OK
+  ->    Verifying Hash Integrity ... sha256+ OK
+  -> Starting kernel ...
+  -> Linux boots -> SWUpdate ready -> OTA pipeline active
+```
+
+Without Secure Boot, an attacker with physical access could replace the kernel directly on the partition. With Secure Boot, U-Boot refuses to execute any kernel whose RSA signature does not match the public key compiled into the bootloader binary.
+
+---
+
+## gateway-monitor — Dynamic Slot Detection
+
+All three versions now read the active slot dynamically from `/proc/cmdline` instead of having it hardcoded in the C source:
+
+```c
+void get_slot() {
+    FILE *fp = fopen("/proc/cmdline", "r");
+    char buf[512];
+    fgets(buf, sizeof(buf), fp);
+    fclose(fp);
+    if (strstr(buf, "vda2"))
+        strcpy(active_slot, "A");
+    else if (strstr(buf, "vda3"))
+        strcpy(active_slot, "B");
+}
+```
+
+**v3.0 new features:**
+- Real-time bandwidth RX/TX (KB/s calculated over 1s window)
+- Dropped packets monitoring from `/proc/net/dev`
+- Active process count from `/proc`
+- Adaptive health monitor based on CPU load thresholds
 
 ---
 
 ## Security Model
 
 ```
-3 scenarios validated:
+OTA package security:
 
 1. OTA unsigned (no sw-description.sig)
-   → Rejected immediately by SWUpdate ✅
-   → No installation, Slot A untouched
+   -> Rejected immediately by SWUpdate
+   -> No installation, active slot untouched
 
 2. OTA signed + corrupted image (valid RSA, empty ext4)
-   → Verified OK by RSA ✅
-   → Installed on Slot B
-   → kernel load fails → bootcount=1,2,3 → ROLLBACK to Slot A ✅
+   -> Verified OK by RSA
+   -> Installed on inactive slot
+   -> Boot fails -> bootcount=1,2,3 -> ROLLBACK to previous slot
 
-3. OTA signed + valid v2.0 image
-   → Verified OK by RSA ✅
-   → Installed on Slot B
-   → Slot B boots successfully → v2.0 active ✅
+3. OTA signed + valid image
+   -> Verified OK by RSA
+   -> Installed on inactive slot
+   -> Boot succeeds -> new slot active
+
+Boot-time security (Secure Boot):
+
+4. Kernel FIT image signature verification
+   -> RSA public key embedded in U-Boot at build time
+   -> Every boot: signature verified before kernel execution
+   -> Tampered or unsigned kernel -> boot REFUSED
 ```
 
 ---
@@ -249,17 +359,21 @@ Smartphone (4G) ──────► ngrok public URL ──────► loc
 - [x] Phase 4 — CI/CD pipeline (GitHub Actions — project validation on every push)
 - [x] Phase 4 — SWUpdate package signing (RSA 2048-bit + SHA256)
 - [x] Phase 4 — libubootenv file-based env — clean SWUPDATE successful logs
+- [x] Phase 5 — U-Boot Secure Boot (FIT image RSA signature verification)
+- [x] Phase 6 — Dynamic A/B slot targeting (preinst.sh + /dev/target_slot)
+- [x] Phase 6 — gateway-monitor v3.0 (bandwidth, health, processes)
+- [x] Phase 6 — Dynamic slot detection from /proc/cmdline in all versions
 - [x] Bonus — Remote OTA via internet from smartphone (ngrok integrated in run-qemu.sh)
 
 ---
 
 ## Why This Project
 
-Most junior embedded engineers know how to compile a kernel or build a rootfs. Far fewer understand how to **safely update** a deployed embedded system without risking a brick.
+Most junior embedded engineers know how to compile a kernel or build a rootfs. Far fewer understand how to **safely update** a deployed embedded system without risking a brick, and even fewer can build a **complete chain of trust** from bootloader to application with truly dynamic slot management.
 
-This project implements the same OTA architecture used in:
+This project implements the same OTA and Secure Boot architecture used in:
 - Industrial IoT devices
-- Automotive ECUs (SOTA updates)
+- Automotive ECUs (SOTA updates, ISO 21434 cybersecurity)
 - Defense and aerospace embedded systems (Thales, Airbus, Collins...)
 
 ---
@@ -272,23 +386,9 @@ This project implements the same OTA architecture used in:
 Build system   : Yocto Project Scarthgap 5.0.18
 Target         : QEMU ARM (qemuarm)
 Kernel         : Linux 6.6.127-yocto-standard
-Architecture   : ARMv7 Processor rev 0 (v7l) — 4 CPUs
+Architecture   : ARMv7 Processor rev 0 (v7l)
 Compiler       : arm-poky-linux-gnueabi-gcc 13.4.0
 Tasks executed : 4060 tasks — 0 errors
-```
-
-```
-zImage (kernel)          :  7.1 MB
-core-image-minimal.ext4  : 14.0 MB
-Total rootfs used        :  8.1 MB / 11.4 MB
-```
-
-```
-CPU      : ARMv7 Processor rev 0 (v7l) x4 cores
-RAM      : 232 MB available / 256 MB total
-Rootfs   : ext4 mounted r/w — /dev/vda
-Network  : eth0 UP — 192.168.7.2/24
-Status   : BOOT SUCCESSFUL
 ```
 
 ---
@@ -299,16 +399,6 @@ Status   : BOOT SUCCESSFUL
 Image name     : gateway-image
 Rootfs size    : 22 MB
 Added packages : SWUpdate v2026.05, Dropbear SSH, iproute2, ethtool, procps
-Tasks executed : 4298 tasks (4043 from cache — 6 min build)
-```
-
-```
-SWUpdate v2026.05        : started automatically at boot ✅
-Dropbear SSH server      : running ✅
-Mongoose web server      : listening on port 8080 ✅
-U-Boot bootloader        : detected by SWUpdate ✅
-Network eth0             : UP — 192.168.7.2/24 ✅
-OTA web interface        : accessible at http://192.168.7.2:8080 ✅
 ```
 
 ---
@@ -316,84 +406,69 @@ OTA web interface        : accessible at http://192.168.7.2:8080 ✅
 ### Phase 3 — A/B OTA Pipeline (Completed)
 
 ```
-Disk layout     : GPT 300MB — vda1 (uboot-env FAT) + vda2 (Slot A 150MB) + vda3 (Slot B 150MB)
-Bootloader      : U-Boot 2024.01 built by Yocto for qemuarm
+Disk layout     : GPT 300MB — vda1 FAT + vda2 Slot A 150MB + vda3 Slot B 150MB
 Boot script     : boot.scr loaded automatically by U-Boot bootcmd
 Slot selection  : U-Boot reads bootslot from vda1 FAT (persistent)
-OTA package     : gateway-update-v2.0.swu (86MB — full ext4 with kernel + boot.scr)
-Transfer method : HTTP POST via curl or web interface (port 8080)
-postinstall.sh  : writes bootslot=b to vda1 FAT after OTA
-```
-
-```
-gateway-monitor v1.0 (Slot A)        gateway-monitor v2.0 (Slot B)
-----------------------------         ------------------------------
-Version  : 1.0.0                     Version  : 2.0.0
-Slot     : A (active)                Slot     : B (active)
-STATUS   : NOMINAL                   *** OTA UPDATE APPLIED ***
-                                     CPU load, RAM, Firewall, Packets
-                                     STATUS   : NOMINAL - ENHANCED
 ```
 
 ---
 
-### Phase 4 — Automatic Rollback (Completed)
+### Phase 4 — Rollback + RSA Signing + CI/CD (Completed)
 
 ```
-U-Boot env       : vda1 FAT partition — bootslot, bootcount, bootlimit
 Rollback trigger : bootcount >= bootlimit (3 failed attempts)
-Reboot on failure: automatic reboot after 3s if kernel load fails
-boot-confirm     : resets bootcount=0 on successful Slot B boot (init.d S99)
-```
-
-```
-Rollback flow:
-Corrupted OTA installed on Slot B
-→ bootcount=1 → kernel load failed → reboot in 3s
-→ bootcount=2 → kernel load failed → reboot in 3s
-→ bootcount=3 >= bootlimit → ROLLBACK: reverting to Slot A ✅
-```
-
----
-
-### Phase 4 — CI/CD GitHub Actions (Completed)
-
-```
-Workflow   : .github/workflows/build.yml
-Trigger    : every push to main branch
-Validation : project structure, sw-description, U-Boot config, gateway-monitor sources
-Status     : passing ✅
-```
-
----
-
-### Phase 4 — RSA Package Signing (Completed)
-
-```
-Signing algorithm : RSA 2048-bit + SHA256 (opensslRSA)
-Private key       : swu/keys/swupdate-private.pem (gitignored)
-Public key        : embedded in rootfs at /etc/swupdate/swupdate-public.pem
-Kconfig           : CONFIG_SIGNED_IMAGES=y + CONFIG_SIGALG_RAWRSA=y
-sw-description    : signed automatically by create-swu.sh via openssl dgst
-Hash verification : SHA256 hash required for each image and script
-```
-
----
-
-### Phase 4 — libubootenv + Clean Logs (Completed)
-
-```
-fw_env.config     : /var/lib/swupdate/uboot.env (file-based, no raw partition needed)
-libubootenv-bin   : fw_printenv / fw_setenv available in rootfs
-loglevel          : 3 (INFO only — no TRACE/DEBUG noise)
-Result            : SWUPDATE successful ! displayed cleanly ✅
+Signing          : RSA 2048-bit + SHA256 — create-swu.sh via openssl dgst
+CI/CD            : GitHub Actions — passing on every push
 ```
 
 ```
 [INFO] : SWUPDATE started  : Software Update started !
 [INFO] : SWUPDATE running  : Installation in progress
 [INFO] : SWUPDATE successful ! SWUPDATE successful !
-[INFO] : No SWUPDATE running : Waiting for requests...
+```
+
+---
+
+### Phase 5 — U-Boot Secure Boot (Completed)
+
+```
+Mechanism   : U-Boot Verified Boot via signed FIT image
+Algorithm   : RSA 2048-bit + SHA256
+Kconfig     : CONFIG_FIT_SIGNATURE=y, CONFIG_RSA=y, CONFIG_RSA_VERIFY=y
+Public key  : compiled into U-Boot control DTB (qemu-arm-pubkey.dtsi)
+```
+
+```
+   Verifying Hash Integrity ... OK
+   Verifying Hash Integrity ... sha256+ OK
+Starting kernel ...
+qemuarm login: root
+```
+
+---
+
+### Phase 6 — Dynamic A/B Slot Targeting (Completed)
+
+```
+preinst.sh    : reads active slot from vda1 FAT, creates /dev/target_slot symlink
+postinstall.sh: re-reads vda1 FAT, writes opposite bootslot, creates uboot.env on target
+sw-description: device = "/dev/target_slot" — never hardcoded
+```
+
+```
+Validated pipeline:
+Slot A v1.0 -> OTA v2.0 -> Slot B v2.0 -> OTA v3.0 -> Slot A v3.0
+Bidirectional — infinite — always installs on inactive slot
+```
+
+```
+gateway-monitor v3.0 (Slot A — dynamic):
+  Version  : 3.0.0
+  Slot     : A (from /proc/cmdline)
+  Bandwidth RX : 0.00 KB/s
+  Dropped pkts : RX=0 TX=0
+  Processes    : 67 active
+  Health       : NOMINAL - OPTIMAL
 ```
 
 ---
@@ -401,19 +476,9 @@ Result            : SWUPDATE successful ! displayed cleanly ✅
 ### Bonus — Remote OTA via Internet (Completed)
 
 ```
-Tool              : ngrok (integrated in run-qemu.sh)
-Trigger           : ngrok starts automatically with QEMU
-URL display       : public URL printed at startup
-Test              : OTA sent from smartphone on 4G — different network ✅
-Security          : RSA signature ensures only authorized .swu are accepted
-```
-
-```
-run-qemu.sh output:
-=== ngrok URL ===
-https://diary-shower-anthology.ngrok-free.dev
-=================
-[QEMU boots...]
+Tool     : ngrok (integrated in run-qemu.sh)
+Test     : OTA sent from smartphone on 4G — different network
+Security : RSA signature ensures only authorized .swu are accepted
 ```
 
 ---
@@ -422,4 +487,4 @@ https://diary-shower-anthology.ngrok-free.dev
 
 **Moez Chagraoui** — Embedded Systems Engineer  
 Double degree: INP-ENSEEIHT Toulouse (ACISE) + ENIT Tunis  
-[LinkedIn](https://linkedin.com/in/moez-chagraoui) • [GitHub](https://github.com/Moez-La)
+[LinkedIn](https://linkedin.com/in/moezchagraoui) • [GitHub](https://github.com/Moez-La)
