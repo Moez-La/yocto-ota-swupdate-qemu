@@ -1,21 +1,26 @@
 software =
 {
     version = "2.0.0";
-    description = "Gateway Monitor OTA update v1.0 -> v2.0";
+    description = "Gateway Monitor OTA update - dynamic slot targeting";
     hardware-compatibility: ["1.0", "2.0", "3.0"];
+    scripts: (
+        {
+            filename = "preinst.sh";
+            type = "preinstall";
+            sha256 = "3dd996419fd0ca9e70c14f19d50ace724442dbc94ec2b460beba9bb6b7c977ce";
+        },
+        {
+            filename = "postinstall.sh";
+            type = "postinstall";
+            sha256 = "f4295488fe87fbd420c8f943bf97fff4dad3bbfd903b6c6b59bb07c3505827b1";
+        }
+    );
     images: (
         {
             filename = "gateway-image-qemuarm.ext4";
-            device = "/dev/vda3";
+            device = "/dev/target_slot";
             type = "raw";
-            sha256 = "ea2494d8fa28af96d9604459bd09f52e30a377493f9c736cba4f5ecd88e129cd";
-        }
-    );
-    scripts: (
-        {
-            filename = "postinstall.sh";
-            type = "shellscript";
-            sha256 = "abbc47e01a445f8e372af5acc9a68d725e2d765ac760fff72766460cfe0d1c34";
+            sha256 = "957b02278ec0f98de750c4a6f18d4d71d62da1540f037d3b5c6ee8854fc9bc51";
         }
     );
 }
