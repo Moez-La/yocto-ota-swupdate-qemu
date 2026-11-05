@@ -6,6 +6,8 @@
 ![SWUpdate](https://img.shields.io/badge/SWUpdate-v2026.05-brightgreen)
 ![CI](https://github.com/Moez-La/yocto-ota-swupdate-qemu/actions/workflows/build.yml/badge.svg)
 
+> **Related repository:** the cloud OTA server used by the Phase 7 OTA Agent is at **[github.com/Moez-La/ota-server](https://github.com/Moez-La/ota-server)** (FastAPI on Render).
+
 Embedded Linux image built with **Yocto Project (Scarthgap)** for QEMU ARM — featuring a complete OTA (Over-The-Air) update pipeline with **SWUpdate**, **A/B partition scheme**, automatic rollback via **U-Boot**, **RSA package signing**, **U-Boot Secure Boot** (FIT image signature verification), and **dynamic A/B slot targeting**. OTA updates can be sent from any device on any network via internet tunnel.
 
 ---
@@ -48,6 +50,8 @@ A custom **Network Gateway Monitor** application (written in C) runs on the embe
 
 The system receives updates remotely via HTTP, SWUpdate verifies the RSA signature and SHA256 hashes, installs safely on the **dynamically detected inactive slot**, and the new features become immediately visible after reboot — demonstrating a real OTA update on an ARMv7 embedded system with full chain of trust.
 
+**Phase 7 (new)** adds a second update model. In addition to the *push* model above (an operator sends the `.swu` to SWUpdate), a **C++ OTA Agent** running on the device now *pulls* updates automatically from a **FastAPI cloud server hosted on Render** ([Moez-La/ota-server](https://github.com/Moez-La/ota-server)): it polls the server, downloads a newer signed `.swu`, installs it on the inactive slot with SWUpdate and reboots — with no manual action on the device.
+
 ---
 
 ## Architecture
@@ -58,7 +62,7 @@ The system receives updates remotely via HTTP, SWUpdate verifies the RSA signatu
 |                                                                  |
 |  +----------+  +----------------+  +----------------+            |
 |  |   vda1   |  |     vda2       |  |     vda3       |            |
-|  | FAT 1MB  |  |  Slot A 150MB  |  |  Slot B 150MB  |            |
+|  | FAT 1MB  |  |  Slot A 400MB  |  |  Slot B 400MB  |            |
 |  |uboot.env |  | Linux vX.0     |  | Linux vY.0     |            |
 |  |bootslot  |  | kernel.itb     |  | kernel.itb     |            |
 |  |bootcount |  | (signed FIT)   |  | (signed FIT)   |            |
@@ -89,10 +93,10 @@ The system receives updates remotely via HTTP, SWUpdate verifies the RSA signatu
 |  +-------------------------------------------------------+       |
 |                                                                  |
 |  +-------------------------------------------------------+       |
-|  |  libubootenv                                          |       |
-|  |  - fw_env.config -> /var/lib/swupdate/uboot.env      |       |
-|  |  - allows SWUpdate to persist update state            |       |
-|  |  - enables clean SWUPDATE successful log              |       |
+|  |  SWUpdate flags: -m -M                                |       |
+|  |  - disables SWUpdate's own state/transaction markers  |       |
+|  |  - slot switching handled by preinst/postinstall + U-Boot |   |
+|  |  - gives a clean SWUPDATE successful log              |       |
 |  +-------------------------------------------------------+       |
 |                                                                  |
 |  +-------------------------------------------------------+       |
@@ -103,6 +107,28 @@ The system receives updates remotely via HTTP, SWUpdate verifies the RSA signatu
 |  +-------------------------------------------------------+       |
 +------------------------------------------------------------------+
 ```
+
+### Phase 7 — Cloud OTA Server + OTA Agent (added)
+
+```
+        +--------------------------------------+
+        |  Cloud OTA Server (Render)           |
+        |  repo: Moez-La/ota-server (FastAPI)  |
+        |  /health  /version  /firmware /upload|
+        +------------------^-------------------+
+                           | HTTPS + API key, poll every 60 s
++--------------------------+-----------------------------------+
+|  QEMU ARM (512 MB RAM)                                       |
+|  OTA Agent (C++17 + libcurl)                                 |
+|   -> reads /var/lib/swupdate/ota-version                     |
+|   -> downloads .swu to /ota (200 MB tmpfs)                   |
+|   -> runs SWUpdate on the inactive slot, then reboots        |
++--------------------------------------------------------------+
+```
+
+> **Notes:**
+> - The disk is **800 MB** with **400 MB slots** (vda2 / vda3), so larger images fit.
+> - SWUpdate is launched with `-m -M` (disable state / transaction markers). Slot switching and boot confirmation are handled by `preinst.sh`, `postinstall.sh` and U-Boot, so SWUpdate does not need to persist its own update state through libubootenv.
 
 ---
 
@@ -120,9 +146,12 @@ The system receives updates remotely via HTTP, SWUpdate verifies the RSA signatu
 | OTA Signing        | RSA 2048-bit + SHA256                            |
 | Boot Signing       | RSA 2048-bit FIT image (U-Boot Verified Boot)    |
 | Slot targeting     | Dynamic — preinst.sh detects active slot at runtime |
-| Env management     | libubootenv (file-based)                         |
+| Env management     | U-Boot env on vda1 FAT + SWUpdate run with -m -M |
 | Remote tunnel      | ngrok (integrated in run-qemu.sh)                |
 | Host OS            | Ubuntu 22.04 LTS                                 |
+| OTA Agent (Phase 7)| C++17 + libcurl + nlohmann-json, init script autostart |
+| Cloud server       | Python FastAPI on Render — [ota-server](https://github.com/Moez-La/ota-server) |
+| QEMU RAM           | 512 MB (Phase 7)                                 |
 
 ---
 
@@ -140,6 +169,12 @@ yocto-ota-swupdate-qemu/
 │   ├── bblayers.conf
 │   └── local.conf
 ├── meta-moez/
+│   ├── recipes-app/ota-agent/             -> Phase 7: C++ OTA Agent
+│   │   ├── files/ota-agent.cpp            -> polls cloud, downloads, installs, reboots
+│   │   ├── files/ota-agent-init           -> sysvinit autostart script
+│   │   ├── files/ota-agent.service        -> systemd unit
+│   │   ├── files/ota-version              -> default version file
+│   │   └── ota-agent_1.0.bb
 │   ├── recipes-app/gateway-monitor/
 │   │   ├── files/gateway-monitor-v1.c     -> C source v1.0 (dynamic slot, basic monitoring)
 │   │   ├── files/gateway-monitor-v2.c     -> C source v2.0 (dynamic slot, enhanced monitoring)
@@ -180,7 +215,7 @@ yocto-ota-swupdate-qemu/
 └── swu/
     ├── keys/
     │   └── swupdate-public.pem
-    ├── create-swu.sh                      -> Builds signed .swu with preinst + postinstall
+    ├── create-swu.sh                      -> Builds signed .swu with preinst + postinstall (usage: bash swu/create-swu.sh <version>, e.g. 3.0.0)
     ├── create-swu-corrupted.sh
     ├── create-swu-corrupted-signed.sh
     ├── preinst.sh                         -> Detects active slot, creates /dev/target_slot
@@ -264,6 +299,37 @@ Slot A v1.0 -> OTA v2.0 -> Slot B v2.0 -> OTA v3.0 -> Slot A v3.0 -> ...
 
 ---
 
+## Cloud OTA Pull Model — OTA Agent (Phase 7)
+
+The cloud server lives in its own repository: **[Moez-La/ota-server](https://github.com/Moez-La/ota-server)** (FastAPI, deployed on Render). The OTA Agent in this repository (`meta-moez/recipes-app/ota-agent/`) is its client.
+
+**OTA Agent behavior (started at boot by `boot-confirm`, logs in `/var/log/ota-agent.log`):**
+
+1. Mounts a 200 MB tmpfs on `/ota` and kills any stray `swupdate` process.
+2. Wakes the server with `/health` (Render free tier goes to sleep).
+3. Reads the local version from `/var/lib/swupdate/ota-version`.
+4. Polls `/version` every 60 seconds.
+5. If the server version is newer, downloads `/firmware` to `/ota/update.swu`.
+6. Checks the download size (> 1 MB).
+7. Runs `swupdate -m -M -i /ota/update.swu -k /etc/swupdate/swupdate-public.pem -H qemuarm:1.0`.
+8. SWUpdate verifies the RSA signature and installs on the inactive slot (same dynamic targeting as before).
+9. Reboots into the new slot.
+
+**Server endpoints:**
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /health` | Liveness check / wake-up |
+| `GET /version` | Latest version, parsed from the uploaded `.swu`; anti-rollback (HTTP 409) |
+| `GET /firmware` | Download the latest `.swu` (API key required) |
+| `POST /upload` | Publish a new `.swu` (upload key required) |
+
+**Anti-rollback:** uploading a version lower than or equal to the one on the server is rejected with HTTP 409.
+
+**Why tmpfs + 512 MB RAM:** downloading to `/tmp`, `/var/volatile` or the rootfs failed with "Failed writing received data" (no space). A dedicated 200 MB tmpfs on `/ota` fixed it.
+
+---
+
 ## Secure Boot — Chain of Trust
 
 ```
@@ -340,6 +406,12 @@ Boot-time security (Secure Boot):
    -> RSA public key embedded in U-Boot at build time
    -> Every boot: signature verified before kernel execution
    -> Tampered or unsigned kernel -> boot REFUSED
+
+Cloud security (Phase 7):
+
+5. Download protected by an API key; upload protected by a separate upload key
+6. Anti-rollback: older or equal version rejected by the server (HTTP 409)
+7. Every package downloaded by the agent is still RSA-verified by SWUpdate before install
 ```
 
 ---
@@ -358,12 +430,26 @@ Boot-time security (Secure Boot):
 - [x] Phase 4 — Automatic rollback (bootcount/bootlimit via U-Boot + FAT env on vda1)
 - [x] Phase 4 — CI/CD pipeline (GitHub Actions — project validation on every push)
 - [x] Phase 4 — SWUpdate package signing (RSA 2048-bit + SHA256)
-- [x] Phase 4 — libubootenv file-based env — clean SWUPDATE successful logs
+- [x] Phase 4 — Clean SWUPDATE successful logs (via `-m -M` flags)
 - [x] Phase 5 — U-Boot Secure Boot (FIT image RSA signature verification)
 - [x] Phase 6 — Dynamic A/B slot targeting (preinst.sh + /dev/target_slot)
 - [x] Phase 6 — gateway-monitor v3.0 (bandwidth, health, processes)
 - [x] Phase 6 — Dynamic slot detection from /proc/cmdline in all versions
+- [x] Phase 7 — C++ OTA Agent (libcurl) with autostart at boot
+- [x] Phase 7 — FastAPI cloud OTA server on Render ([ota-server](https://github.com/Moez-La/ota-server))
+- [x] Phase 7 — Pull-model OTA with dynamic version parsed from `.swu` and anti-rollback (HTTP 409)
+- [ ] Next — mTLS with per-device certificates
+- [ ] Next — Port to Raspberry Pi
 - [x] Bonus — Remote OTA via internet from smartphone (ngrok integrated in run-qemu.sh)
+
+---
+
+## Known Limitations
+
+- Render free tier sleeps and its filesystem is ephemeral — the `.swu` must be re-uploaded after a server restart (see [ota-server](https://github.com/Moez-La/ota-server)).
+- `gateway-monitor` is not auto-started; only the OTA Agent starts at boot.
+- The API keys in the demo code are shared demo values; production would use per-device credentials / mTLS.
+- QEMU only (512 MB RAM); `postinstall.sh` currently writes a fixed version to the target slot's version file.
 
 ---
 
@@ -406,7 +492,7 @@ Added packages : SWUpdate v2026.05, Dropbear SSH, iproute2, ethtool, procps
 ### Phase 3 — A/B OTA Pipeline (Completed)
 
 ```
-Disk layout     : GPT 300MB — vda1 FAT + vda2 Slot A 150MB + vda3 Slot B 150MB
+Disk layout     : GPT 800MB — vda1 FAT 1MB + vda2 Slot A 400MB + vda3 Slot B 400MB
 Boot script     : boot.scr loaded automatically by U-Boot bootcmd
 Slot selection  : U-Boot reads bootslot from vda1 FAT (persistent)
 ```
@@ -473,6 +559,18 @@ gateway-monitor v3.0 (Slot A — dynamic):
 
 ---
 
+### Phase 7 — Cloud OTA Pull Model (Completed)
+
+```
+Agent          : C++17 + libcurl, polls every 60 s, log /var/log/ota-agent.log
+Server         : FastAPI on Render (Moez-La/ota-server)
+Download area  : 200 MB tmpfs on /ota (QEMU RAM 512 MB)
+Install        : swupdate -m -M ... -> "SWUPDATE successful" on v1 -> v2.0.0
+Anti-rollback  : lower/equal version rejected with HTTP 409
+```
+
+---
+
 ### Bonus — Remote OTA via Internet (Completed)
 
 ```
@@ -487,4 +585,4 @@ Security : RSA signature ensures only authorized .swu are accepted
 
 **Moez Chagraoui** — Embedded Systems Engineer  
 Double degree: INP-ENSEEIHT Toulouse (ACISE) + ENIT Tunis  
-[LinkedIn](https://linkedin.com/in/moezchagraoui) • [GitHub](https://github.com/Moez-La)
+[LinkedIn](https://linkedin.com/in/moezchagraoui) • [GitHub](https://github.com/Moez-La) • [OTA Server repo](https://github.com/Moez-La/ota-server)
