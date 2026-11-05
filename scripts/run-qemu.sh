@@ -1,6 +1,6 @@
 #!/bin/bash
-BUILD_DIR="/mnt/windows/yocto-ota-swupdate-qemu/build/tmp/deploy/images/qemuarm"
-DISK="/mnt/windows/yocto-ota-swupdate-qemu/disk-ab.img"
+BUILD_DIR="/mnt/yocto/yocto-ota-swupdate-qemu/build/tmp/deploy/images/qemuarm"
+DISK="/mnt/yocto/yocto-ota-swupdate-qemu/disk-ab.img"
 
 # Lance ngrok en arrière-plan
 ngrok http 8080 --log=stdout > /tmp/ngrok.log &
@@ -12,7 +12,7 @@ echo "================="
 qemu-system-arm \
   -machine virt \
   -cpu cortex-a15 \
-  -m 256 \
+  -m 512 \
   -nographic \
   -bios $BUILD_DIR/u-boot.bin \
   -drive id=disk0,file=$DISK,if=none,format=raw \

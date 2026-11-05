@@ -44,3 +44,10 @@ if mount $TARGET_DEV $SLOT_MOUNT 2>/dev/null; then
 fi
 
 echo "postinstall.sh FINISHED" >> /tmp/postinstall_debug.log
+
+# Update installed version on target slot
+if mount $TARGET_DEV $SLOT_MOUNT 2>/dev/null; then
+    mkdir -p $SLOT_MOUNT/var/lib/swupdate
+    echo "__VERSION__" > $SLOT_MOUNT/var/lib/swupdate/ota-version
+    umount $SLOT_MOUNT
+fi

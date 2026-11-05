@@ -11,3 +11,8 @@ if mount /dev/vda1 $MOUNTPOINT 2>/dev/null; then
     fi
     umount $MOUNTPOINT
 fi
+
+if [ -x /usr/bin/ota-agent ]; then
+    start-stop-daemon -S -b -n ota-agent -x /bin/sh \
+        -- -c '/usr/bin/ota-agent >> /var/log/ota-agent.log 2>&1'
+fi

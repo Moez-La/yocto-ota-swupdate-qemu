@@ -1,18 +1,25 @@
 #!/bin/bash
 set -e
+
+VERSION=${1:-"3.0.0"}
+POSTINSTALL="postinstall.sh"
+POSTINSTALL_BAK="${POSTINSTALL}.bak"
+cp "$POSTINSTALL" "$POSTINSTALL_BAK"
+sed -i "s/__VERSION__/${VERSION}/g" "$POSTINSTALL"
 SCRIPT_DIR=$(dirname $(realpath $0))
-BUILD_DIR="/mnt/windows/yocto-ota-swupdate-qemu/build/tmp/deploy/images/qemuarm"
+BUILD_DIR="/mnt/yocto/yocto-ota-swupdate-qemu/build/tmp/deploy/images/qemuarm"
 SWU_DIR="$SCRIPT_DIR"
 BOOT_SCR="/tmp/boot.scr"
-KERNEL_ITB="/mnt/windows/yocto-ota-swupdate-qemu/secureboot/fit/kernel.itb"
+KERNEL_ITB="/mnt/yocto/yocto-ota-swupdate-qemu/secureboot/fit/kernel.itb"
 PRIVATE_KEY="$SCRIPT_DIR/keys/swupdate-private.pem"
+OUTPUT="gateway-update-v${VERSION}.swu"
 
+echo "=== Creating .swu version ${VERSION} ==="
 echo "=== Creating full ext4 image with rootfs + kernel + boot.scr ==="
 MOUNT_DIR=$(mktemp -d)
 IMG="$SWU_DIR/gateway-image-qemuarm.ext4"
 cp $BUILD_DIR/gateway-image-qemuarm.rootfs.ext4 $IMG
 sudo mount -o loop $IMG $MOUNT_DIR
-sudo cp $BUILD_DIR/zImage $MOUNT_DIR/boot/
 sudo cp $BOOT_SCR $MOUNT_DIR/boot/
 if [ -f "$KERNEL_ITB" ]; then
     sudo cp $KERNEL_ITB $MOUNT_DIR/boot/
@@ -24,7 +31,6 @@ echo "=== Computing SHA256 hashes ==="
 IMG_HASH=$(sha256sum $IMG | cut -d' ' -f1)
 PREINST_HASH=$(sha256sum $SWU_DIR/preinst.sh | cut -d' ' -f1)
 POST_HASH=$(sha256sum $SWU_DIR/postinstall.sh | cut -d' ' -f1)
-
 echo "Image hash    : $IMG_HASH"
 echo "Preinst hash  : $PREINST_HASH"
 echo "Postinst hash : $POST_HASH"
@@ -33,7 +39,7 @@ echo "=== Generating sw-description ==="
 cat > $SWU_DIR/sw-description << SWDESC
 software =
 {
-    version = "2.0.0";
+    version = "${VERSION}";
     description = "Gateway Monitor OTA update - dynamic slot targeting";
     hardware-compatibility: ["1.0", "2.0", "3.0"];
     scripts: (
@@ -67,7 +73,8 @@ echo "=== Creating signed SWUpdate package ==="
 cd $SWU_DIR
 for f in sw-description sw-description.sig preinst.sh postinstall.sh gateway-image-qemuarm.ext4; do
     echo $f
-done | cpio -o -H newc > gateway-update-v2.0.swu
+done | cpio -o -H newc > $OUTPUT
+mv "$POSTINSTALL_BAK" "$POSTINSTALL"
 
 echo "=== Package created ==="
-ls -lh gateway-update-v2.0.swu
+ls -lh $OUTPUT

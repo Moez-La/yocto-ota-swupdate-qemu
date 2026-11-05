@@ -1,0 +1,15 @@
+[Unit]
+Description=OTA Update Agent
+After=network-online.target swupdate.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ota-agent
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
