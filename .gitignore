@@ -24,3 +24,4 @@ secureboot/keys/fit-private.key
 secureboot/fit/fit-private.key
 secureboot/keys/fit-private.key
 secureboot/fit/fit-private.key
+meta-moez/recipes-app/ota-agent/files/api_key

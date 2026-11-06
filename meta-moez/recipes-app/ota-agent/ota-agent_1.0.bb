@@ -9,7 +9,8 @@ DEPENDS = "curl nlohmann-json"
 SRC_URI = "file://ota-agent.cpp \
            file://ota-agent.service \
            file://ota-version \
-           file://ota-agent-init"
+           file://ota-agent-init \
+           file://api_key"
 
 S = "${WORKDIR}"
 
@@ -31,6 +32,8 @@ do_install() {
     install -m 0755 ${WORKDIR}/ota-agent-init ${D}${sysconfdir}/init.d/ota-agent
     install -d ${D}${sysconfdir}
     install -m 0644 ${WORKDIR}/ota-version ${D}${sysconfdir}/ota-version
+    install -d ${D}${sysconfdir}/ota-agent
+    install -m 0600 ${WORKDIR}/api_key ${D}${sysconfdir}/ota-agent/api_key
 }
 
-FILES:${PN} += "${sysconfdir}/ota-version"
+FILES:${PN} += "${sysconfdir}/ota-version ${sysconfdir}/ota-agent/api_key"

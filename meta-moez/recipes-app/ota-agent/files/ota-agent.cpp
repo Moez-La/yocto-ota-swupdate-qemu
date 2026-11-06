@@ -10,7 +10,18 @@
 using json = nlohmann::json;
 
 #define OTA_SERVER    "https://ota-server-liaa.onrender.com"
-#define API_KEY       "moez-ota-secret-key-2026"
+#define API_KEY_FILE  "/etc/ota-agent/api_key"
+
+static std::string g_api_key;
+
+static std::string read_api_key() {
+    std::ifstream f(API_KEY_FILE);
+    std::string key;
+    std::getline(f, key);
+    while (!key.empty() && (key.back() == '\r' || key.back() == ' '))
+        key.pop_back();
+    return key;
+}
 #define VERSION_FILE  "/var/lib/swupdate/ota-version"
 #define SWU_PATH      "/ota/update.swu"
 #define CHECK_INTERVAL 60
@@ -41,7 +52,7 @@ bool check_update(const std::string &current_ver, std::string &new_ver) {
     std::string url = std::string(OTA_SERVER) + "/version";
 
     struct curl_slist *headers = nullptr;
-    headers = curl_slist_append(headers, ("x-api-key: " + std::string(API_KEY)).c_str());
+    headers = curl_slist_append(headers, ("x-api-key: " + g_api_key).c_str());
     headers = curl_slist_append(headers, ("x-current-version: " + current_ver).c_str());
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
@@ -99,7 +110,7 @@ bool download_firmware() {
 
     std::string url = std::string(OTA_SERVER) + "/firmware";
     struct curl_slist *headers = nullptr;
-    headers = curl_slist_append(headers, ("x-api-key: " + std::string(API_KEY)).c_str());
+    headers = curl_slist_append(headers, ("x-api-key: " + g_api_key).c_str());
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
@@ -131,6 +142,11 @@ bool download_firmware() {
 }
 
 int main() {
+    g_api_key = read_api_key();
+    if (g_api_key.empty()) {
+        std::cerr << "ota-agent: no API key in " << API_KEY_FILE << ", exiting" << std::endl;
+        return 1;
+    }
     std::cout << "[OTA] Agent started" << std::endl;
     system("mkdir -p /ota && mount -t tmpfs -o size=200M tmpfs /ota 2>/dev/null || true");
     system("killall swupdate 2>/dev/null; sleep 2");

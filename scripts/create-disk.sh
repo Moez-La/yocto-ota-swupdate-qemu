@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-DISK_IMG="/mnt/windows/yocto-ota-swupdate-qemu/disk-ab.img"
+DISK_IMG="/mnt/yocto/yocto-ota-swupdate-qemu/disk-ab.img"
 DISK_SIZE=800  # MB
 echo "=== Creating A/B partition disk image ==="
 dd if=/dev/zero of=$DISK_IMG bs=1M count=$DISK_SIZE
